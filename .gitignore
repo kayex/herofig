@@ -16,3 +16,5 @@
 
 # Test .env file
 example.env
+example.env.encrypted
+test.key
