@@ -10,7 +10,16 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 )
+
+type Platform interface {
+	Name() string
+	Get() (map[string]string, error)
+	GetValue(key string) (string, error)
+	Set(map[string]string) error
+	SetValue(key, value string) error
+}
 
 func main() {
 	// pull - Get config from Heroku and save to file
@@ -20,64 +29,110 @@ func main() {
 	// encrypt - Encrypt .env file
 	// decrypt - Decrypt .env file
 
+	start := time.Now()
+
 	l := log.New(os.Stderr, "", log.LstdFlags)
+
 	flag.Parse()
 	command := flag.Arg(0)
+	app := flag.Arg(1)
+	args := flag.Args()[2:]
+	p := heroku.New(app)
+
 	switch command {
 	case "get":
-		get(l)
+		get(l, p, args)
 	case "set":
-		set(l)
+		set(l, p, args)
 	case "pull":
-		pull(l)
+		pull(l, p, args)
+	case "push":
+		push(l, p, args)
+	default:
+		fmt.Println("Usage: configtool get|set|pull|push")
 	}
 
+	duration := time.Now().Sub(start)
+	fmt.Printf("Finished in %v\n", round(duration, 2))
 }
 
-func get(l *log.Logger) {
-	app := flag.Arg(1)
-	key := flag.Arg(2)
+func get(l *log.Logger, p Platform, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool get [app] [key]")
+		os.Exit(1)
+	}
+	key := args[0]
 
-	v, err := heroku.GetValue(app, key)
+	v, err := p.GetValue(key)
 	if err != nil {
 		l.Fatalf("failed getting value for %s: %v", key, err)
 	}
 	fmt.Println(v)
 }
 
-func set(l *log.Logger) {
-	args := flag.Args()[1:]
-	app := args[0]
-	pairs := args[1:]
-	config := make(map[string]string)
+func set(l *log.Logger, p Platform, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool set [app] KEY=VALUE")
+		os.Exit(1)
+	}
 
-	for _, p := range pairs {
-		k, v := env.ParsePair(p)
+	config := make(map[string]string)
+	for _, pair := range args {
+		k, v, err := env.ParsePair(pair)
+		if err != nil {
+			l.Fatalf("failed parsing variables: %v", err)
+		}
 		config[k] = v
 	}
 
-	fmt.Printf("Setting config on %s...\n", app)
+	fmt.Printf("Setting config on %s...\n", p.Name())
 
-	err := heroku.Set(app, config)
+	err := p.Set(config)
 	if err != nil {
-		l.Fatalf("failed setting %s: %v", strings.Join(pairs, " "), err)
+		l.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	printRemoteSuccess(app, strings.Join(pairs, " "))
+	printRemoteSuccess(p.Name(), strings.Join(args, " "))
 }
 
-func pull(l *log.Logger) {
-	app := flag.Arg(1)
-	dest := flag.Arg(2)
+func push(l *log.Logger, p Platform, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool push [app] [source file]")
+	}
+	source := args[0]
+
+	data, err := ioutil.ReadFile(source)
+	if err != nil {
+		l.Fatalf("Could not read source file %v: %v", source, err)
+	}
+
+	config, err := env.Parse(data)
+	if err != nil {
+		l.Fatalf("error reading source file: %v", err)
+	}
+
+	err = p.Set(config)
+	if err != nil {
+		l.Fatalf("failed pushing config: %v", err)
+	}
+
+	printRemoteSuccess(p.Name(), fmt.Sprintf("Successfully pushed %d configuration variables.", len(config)))
+}
+
+func pull(l *log.Logger, p Platform, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool pull [app] [target file]")
+	}
+	dest := args[0]
 
 	if !confirmOverwrite(dest) {
 		fmt.Println("Aborting")
 		os.Exit(2)
 	}
 
-	fmt.Printf("Pulling config from %s...\n", app)
+	fmt.Printf("Pulling config from %s...\n", p.Name())
 
-	config, err := heroku.Pull(app)
+	config, err := p.Get()
 	if err != nil {
 		l.Fatalf("failed pulling config: %v", err)
 	}
@@ -92,7 +147,7 @@ func pull(l *log.Logger) {
 		l.Fatalf("failed saving config to %s: %v", dest, err)
 	}
 
-	printRemoteSuccess(app, fmt.Sprintf("Pulled %d configuration values to %s", len(config), dest))
+	printRemoteSuccess(p.Name(), fmt.Sprintf("Pulled %d configuration variables to %s", len(config), dest))
 }
 
 func confirmOverwrite(dest string) bool {
@@ -112,5 +167,18 @@ func export(l *log.Logger, config map[string]string, dest string) error {
 }
 
 func printRemoteSuccess(app, message string) {
-	fmt.Printf("OK [%s] %s", app, message)
+	fmt.Printf("OK [%s] %s\n", app, message)
+}
+
+func round(d time.Duration, digits int) time.Duration {
+	var divs = []time.Duration{time.Duration(1), time.Duration(10), time.Duration(100), time.Duration(1000)}
+	switch {
+	case d > time.Second:
+		d = d.Round(time.Second / divs[digits])
+	case d > time.Millisecond:
+		d = d.Round(time.Millisecond / divs[digits])
+	case d > time.Microsecond:
+		d = d.Round(time.Microsecond / divs[digits])
+	}
+	return d
 }
