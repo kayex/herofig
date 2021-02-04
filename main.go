@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/kayex/configtool/encryption"
 	"github.com/kayex/configtool/env"
 	"github.com/kayex/configtool/heroku"
 	"io/ioutil"
@@ -33,13 +34,20 @@ func main() {
 
 	l := log.New(os.Stderr, "", log.LstdFlags)
 
+	var app = flag.String("app", "", "The name of the Heroku application.")
+	var secret = flag.String("secret", "", "The file containing the encryption secret.")
+
 	flag.Parse()
 	command := flag.Arg(0)
-	app := flag.Arg(1)
-	args := flag.Args()[2:]
-	p := heroku.New(app)
+	args := flag.Args()[1:]
+
+	var p Platform
+	if *app != "" {
+		p = heroku.New(*app)
+	}
 
 	switch command {
+	// Remote commands.
 	case "get":
 		get(l, p, args)
 	case "set":
@@ -48,8 +56,16 @@ func main() {
 		pull(l, p, args)
 	case "push":
 		push(l, p, args)
+	// Local commands.
+	case "keygen":
+		keygen(l, args)
+	case "encrypt":
+		encrypt(l, *secret, args)
+	case "decrypt":
+		decrypt(l, *secret, args)
 	default:
-		fmt.Println("Usage: configtool get|set|pull|push")
+		fmt.Println("Usage: configtool get|set|pull|push|encrypt|decrypt|keygen")
+		os.Exit(1)
 	}
 
 	duration := time.Now().Sub(start)
@@ -98,6 +114,7 @@ func set(l *log.Logger, p Platform, args []string) {
 func push(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
 		fmt.Println("Usage: configtool push [app] [source file]")
+		os.Exit(1)
 	}
 	source := args[0]
 
@@ -122,6 +139,7 @@ func push(l *log.Logger, p Platform, args []string) {
 func pull(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
 		fmt.Println("Usage: configtool pull [app] [target file]")
+		os.Exit(1)
 	}
 	dest := args[0]
 
@@ -150,6 +168,73 @@ func pull(l *log.Logger, p Platform, args []string) {
 	printRemoteSuccess(p.Name(), fmt.Sprintf("Pulled %d configuration variables to %s", len(config), dest))
 }
 
+func encrypt(l *log.Logger, keyFile string, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool encrypt [file]")
+		os.Exit(1)
+	}
+
+	if keyFile == "" {
+		fmt.Println("Usage: configtool --secret [keyfile] encrypt [file]")
+		os.Exit(1)
+	}
+
+	key, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		log.Fatalf("could not read keyfile %s: %v", keyFile, err)
+	}
+
+	filename := args[0]
+	err = encryption.EncryptFile(key, filename)
+	if err != nil {
+		log.Fatalf("encryption failed: %v", err)
+	}
+
+	cs := encryption.Describe()
+	printLocalSuccess(filename, fmt.Sprintf("Successfully encrypted %s using %s (key length %d).", filename, cs.Cipher, cs.KeyLength))
+}
+
+func decrypt(l *log.Logger, keyFile string, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool --secret [keyfile] decrypt [file]")
+		os.Exit(1)
+	}
+
+	if keyFile == "" {
+		fmt.Println("Usage: configtool --secret [keyfile] encrypt [file]")
+		os.Exit(1)
+	}
+
+	key, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		log.Fatalf("could not read keyfile %s: %v", keyFile, err)
+	}
+
+	filename := args[0]
+	newFilename, err := encryption.DecryptFile(key, filename)
+	if err != nil {
+		log.Fatalf("encryption failed: %v", err)
+	}
+
+	printLocalSuccess(newFilename, fmt.Sprintf("Successfully decrypted %s.", filename))
+}
+
+func keygen(l *log.Logger, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool keygen [output file]")
+		os.Exit(1)
+	}
+	output := args[0]
+
+	key := encryption.GenerateKey()
+	err := ioutil.WriteFile(output, key, 0600)
+	if err != nil {
+		l.Fatalf("failed writing keyfile: %v", err)
+	}
+
+	printLocalSuccess(output, fmt.Sprintf("Successfully generated key with length %d.", encryption.Describe().KeyLength))
+}
+
 func confirmOverwrite(dest string) bool {
 	if _, err := os.Stat(dest); err == nil {
 		fmt.Printf("The file %s already exists. Pass --overwrite to force overwrite.\n", dest)
@@ -164,6 +249,10 @@ func confirmOverwrite(dest string) bool {
 
 func export(l *log.Logger, config map[string]string, dest string) error {
 	return ioutil.WriteFile(dest, env.FromConfig(config, "\n"), 0644)
+}
+
+func printLocalSuccess(filename, message string) {
+	fmt.Printf("OK [%s] %s\n", filename, message)
 }
 
 func printRemoteSuccess(app, message string) {
