@@ -7,8 +7,20 @@ import (
 	"os/exec"
 )
 
-func Pull(app string) (map[string]string, error) {
-	res, err := run(app, "config", "--json")
+type Heroku struct {
+	app string
+}
+
+func New(app string) *Heroku {
+	return &Heroku{app: app}
+}
+
+func (h *Heroku) Name() string {
+	return h.app
+}
+
+func (h *Heroku) Get() (map[string]string, error) {
+	res, err := run(h.app, "config", "--json")
 	if err != nil {
 		return nil, err
 	}
@@ -21,21 +33,26 @@ func Pull(app string) (map[string]string, error) {
 	return config, nil
 }
 
-func GetValue(app, key string) (string, error) {
-	res, err := run(app, "config:get", key)
+func (h *Heroku) GetValue(key string) (string, error) {
+	res, err := run(h.app, "config:get", key)
 	if err != nil {
 		return "", err
 	}
 	return string(res), nil
 }
 
-func SetValue(app string, key, value string) error {
-	_, err := run(app, "config:set", fmt.Sprintf("%s=%s", key, value))
+func (h *Heroku) SetValue(key, value string) error {
+	_, err := run(h.app, "config:set", fmt.Sprintf("%s=%s", key, value))
 	return err
 }
 
-func Set(app string, config map[string]string) error {
-	_, err := run(app, "config:set", string(env.FromConfig(config, " ")))
+func (h *Heroku) Set(config map[string]string) error {
+	var vars []string
+	for k, v := range config {
+		vars = append(vars, env.KeyValue(k, v))
+	}
+
+	_, err := run(h.app, "config:set", vars...)
 	return err
 }
 

@@ -1,17 +1,38 @@
 package env
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"strings"
 )
 
-func ParsePair(pair string) (string, string) {
-	// TODO: Validation
+func ParsePair(pair string) (string, string, error) {
 	parts := strings.Split(pair, "=")
-	return parts[0], parts[1]
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid variable format: %v", pair)
+	}
+
+	return parts[0], parts[1], nil
 }
 
 func KeyValue(key, value string) string {
 	return key + "=" + value
+}
+
+func Parse(env []byte) (map[string]string, error) {
+	config := make(map[string]string)
+
+	scanner := bufio.NewScanner(bytes.NewReader(env))
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		k, v, err := ParsePair(scanner.Text())
+		if err != nil {
+			return nil, fmt.Errorf("error processing line: %v", err)
+		}
+		config[k] = v
+	}
+	return config, nil
 }
 
 func FromConfig(config map[string]string, separator string) []byte {
