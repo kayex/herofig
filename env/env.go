@@ -2,8 +2,8 @@ package env
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -20,10 +20,10 @@ func KeyValue(key, value string) string {
 	return key + "=" + value
 }
 
-func Parse(env []byte) (map[string]string, error) {
+func Parse(env io.Reader) (map[string]string, error) {
 	config := make(map[string]string)
 
-	scanner := bufio.NewScanner(bytes.NewReader(env))
+	scanner := bufio.NewScanner(env)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		k, v, err := ParsePair(scanner.Text())

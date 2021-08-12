@@ -2,6 +2,7 @@ package heroku
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/kayex/herofig/env"
 	"os/exec"
@@ -52,11 +53,11 @@ func (h *Heroku) Set(config map[string]string) error {
 	return err
 }
 
-func (h *Heroku) Name() string {
-	if h.app != "" {
-		return h.app
+func (h *Heroku) App() string {
+	if h.app == "" {
+		return "heroku"
 	}
-	return "heroku"
+	return h.app
 }
 
 func (h *Heroku) run(script string, args ...string) ([]byte, error) {
@@ -68,8 +69,9 @@ func (h *Heroku) run(script string, args ...string) ([]byte, error) {
 	cmd := exec.Command("heroku", args...)
 	stdout, err := cmd.Output()
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("failed invoking Heroku CLI (%w): %s\n", err, string(ee.Stderr))
+		var e *exec.ExitError
+		if errors.As(err, &e) {
+			return nil, fmt.Errorf("failed invoking Heroku CLI (%w): %s\n", err, string(e.Stderr))
 		}
 		return nil, fmt.Errorf("failed invoking Heroku CLI: %w\n", err)
 	}

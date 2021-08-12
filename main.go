@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"flag"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/kayex/herofig/env"
 	"github.com/kayex/herofig/heroku"
+	"github.com/kayex/herofig/print"
 	"io/ioutil"
 	"log"
 	"os"
@@ -14,23 +15,7 @@ import (
 	"time"
 )
 
-var errUserCancel = errors.New("user canceled")
-
-type Platform interface {
-	Name() string
-	Get() (map[string]string, error)
-	GetValue(key string) (string, error)
-	Set(map[string]string) error
-	SetValue(key, value string) error
-}
-
 func main() {
-	// pull - Get config from Heroku and save to file
-	// push - Add config variables to Heroku without overwriting anything
-	// push:new - Add new config variables to Heroku without updating existing ones
-	// push:overwrite - Add config variables to Heroku, replacing existing ones
-
-	start := time.Now()
 	l := log.New(os.Stderr, "", log.LstdFlags)
 
 	// Accept explicit application name using -a and --app flags to stay consistent with the Heroku CLI.
@@ -56,31 +41,27 @@ func main() {
 		push(l, h, args)
 	case "push:new":
 		pushNew(l, h, args)
-	// TODO: Add push:overwrite
 	default:
 		fmt.Println("Usage: herofig get|set|pull|push|push:new")
 		os.Exit(1)
 	}
-
-	duration := time.Now().Sub(start)
-	fmt.Printf("Finished in %v\n", round(duration, 2))
 }
 
-func get(l *log.Logger, p Platform, args []string) {
+func get(l *log.Logger, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		fmt.Println("Usage: herofig get [key]")
 		os.Exit(1)
 	}
 	key := args[0]
 
-	v, err := p.GetValue(key)
+	v, err := h.GetValue(key)
 	if err != nil {
 		l.Fatalf("failed getting value for %s: %v", key, err)
 	}
 	fmt.Println(v)
 }
 
-func set(l *log.Logger, p Platform, args []string) {
+func set(l *log.Logger, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		fmt.Println("Usage: herofig set KEY=VALUE")
 		os.Exit(1)
@@ -95,29 +76,29 @@ func set(l *log.Logger, p Platform, args []string) {
 		config[k] = v
 	}
 
-	fmt.Printf("Setting config on %s...\n", p.Name())
+	fmt.Printf("Setting config on %s...\n", h.App())
 
-	err := p.Set(config)
+	err := h.Set(config)
 	if err != nil {
 		l.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	printSuccess(p.Name(), strings.Join(args, " "))
+	printSuccess(h.App(), strings.Join(args, " "))
 }
 
-func pushNew(l *log.Logger, p Platform, args []string) {
+func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		fmt.Println("Usage: herofig push:new [source file]")
 		os.Exit(1)
 	}
 	source := args[0]
 
-	existing, err := p.Get()
+	existing, err := h.Get()
 	if err != nil {
 		l.Fatalf("failed getting existing configuration from Heroku: %v", err)
 	}
 
-	config, err := readEnvSource(source)
+	config, err := parseEnvFile(source)
 	if err != nil {
 		l.Fatal(err)
 	}
@@ -130,37 +111,37 @@ func pushNew(l *log.Logger, p Platform, args []string) {
 		}
 	}
 
-	err = p.Set(newConfig)
+	err = h.Set(newConfig)
 	if err != nil {
 		l.Fatalf("failed pushing configuration to Heroku: %v", err)
 	}
 
-	printSuccess(p.Name(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", len(config))))
+	printSuccess(h.App(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", len(config))))
 }
 
-func push(l *log.Logger, p Platform, args []string) {
+func push(l *log.Logger, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		fmt.Println("Usage: herofig push [source file]")
 		os.Exit(1)
 	}
 	source := args[0]
 
-	config, err := readEnvSource(source)
+	config, err := parseEnvFile(source)
 	if err != nil {
 		l.Fatal(err)
 	}
 
-	err = p.Set(config)
+	err = h.Set(config)
 	if err != nil {
 		l.Fatalf("failed pushing config: %v", err)
 	}
 
-	printSuccess(p.Name(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variables", len(config))))
+	printSuccess(h.App(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variables", len(config))))
 }
 
-func pull(l *log.Logger, p Platform, args []string) {
+func pull(l *log.Logger, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: herofig pull [target file]")
+		fmt.Println("Usage: herofig pull [destination file]")
 		os.Exit(1)
 	}
 	dest := args[0]
@@ -170,9 +151,9 @@ func pull(l *log.Logger, p Platform, args []string) {
 		os.Exit(2)
 	}
 
-	fmt.Printf("Pulling config from %s...\n", p.Name())
+	fmt.Printf("Pulling config from %s...\n", h.App())
 
-	config, err := p.Get()
+	config, err := h.Get()
 	if err != nil {
 		l.Fatalf("failed pulling config: %v", err)
 	}
@@ -182,19 +163,20 @@ func pull(l *log.Logger, p Platform, args []string) {
 		return
 	}
 
-	err = export(l, config, dest)
+	err = writeEnvFile(dest, config)
 	if err != nil {
 		l.Fatalf("failed saving config to %s: %v", dest, err)
 	}
 
-	printSuccess(p.Name(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), dest))
+	printSuccess(h.App(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), dest))
 }
 
-func readEnvSource(filename string) (map[string]string, error) {
-	data, err := ioutil.ReadFile(filename)
+func parseEnvFile(filename string) (map[string]string, error) {
+	data, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("could not read source file %v: %v", filename, err)
 	}
+	defer data.Close()
 
 	config, err := env.Parse(data)
 	if err != nil {
@@ -204,13 +186,17 @@ func readEnvSource(filename string) (map[string]string, error) {
 	return config, nil
 }
 
+func writeEnvFile(filename string, config map[string]string) error {
+	return ioutil.WriteFile(filename, env.FromConfig(config, "\n"), 0644)
+}
+
 func confirm(message, prompt string, def bool) bool {
 	fmt.Println(message)
 
 	if def {
-		fmt.Printf("%s [Y/n] ", prompt)
+		print.Warning("%s [Y/n] ", prompt)
 	} else {
-		fmt.Printf("%s [y/N] ", prompt)
+		print.Warning("%s [y/N] ", prompt)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -222,19 +208,16 @@ func confirm(message, prompt string, def bool) bool {
 	return text == "y\n" || text == "Y\n"
 }
 
-func confirmOverwrite(dest string) bool {
-	if _, err := os.Stat(dest); err == nil {
-		return confirm(fmt.Sprintf("The file %s already exists. Pass --overwrite to force overwrite.", dest), "Overwrite?", false)
+func confirmOverwrite(filePath string) bool {
+	if _, err := os.Stat(filePath); err == nil {
+		return confirm(fmt.Sprintf("The file %s already exists.", filePath), "Overwrite?", false)
 	}
 	return true
 }
 
-func export(l *log.Logger, config map[string]string, dest string) error {
-	return ioutil.WriteFile(dest, env.FromConfig(config, "\n"), 0644)
-}
-
 func printSuccess(app, message string) {
-	fmt.Printf("OK [%s] %s\n", app, message)
+	color.Green("OK [%s] %s\n", app, message)
+	//fmt.Printf("OK [%s] %s\n", app, message)
 }
 
 func round(d time.Duration, digits int) time.Duration {
