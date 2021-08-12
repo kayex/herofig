@@ -1,20 +1,13 @@
 # Binaries
 herofig
-
 *.exe
 *.exe~
-*.dll
-*.so
-*.dylib
 
 # Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-
 # IDE files
 .idea/
 
-# Test .env file
-example.env
+# Test .env files
+*.env
