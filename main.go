@@ -85,15 +85,14 @@ func set(l *log.Logger, h *heroku.Heroku, args []string) {
 }
 
 func pull(l *log.Logger, h *heroku.Heroku, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: herofig pull [destination file]")
-		os.Exit(1)
-	}
-	dest := args[0]
+	destination := ""
+	if len(args) >= 1 {
+		destination = args[0]
 
-	if !confirmOverwrite(dest) {
-		print.Error("Aborting")
-		os.Exit(2)
+		if !confirmOverwrite(destination) {
+			print.Error("Aborting\n")
+			os.Exit(2)
+		}
 	}
 
 	fmt.Printf("Pulling config from %s...\n", h.App())
@@ -103,17 +102,22 @@ func pull(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed pulling config: %v", err)
 	}
 
-	if dest == "" {
-		fmt.Printf("%s\n", config)
+	if destination == "" {
+		for k, v := range config {
+			print.Key(k)
+			fmt.Print("=")
+			print.Value(v)
+			fmt.Print("\n")
+		}
 		return
 	}
 
-	err = writeEnvFile(dest, config)
+	err = writeEnvFile(destination, config)
 	if err != nil {
-		l.Fatalf("failed saving config to %s: %v", dest, err)
+		l.Fatalf("failed saving config to %s: %v", destination, err)
 	}
 
-	success(h.App(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), dest))
+	success(h.App(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), destination))
 }
 
 func push(l *log.Logger, h *heroku.Heroku, args []string) {
@@ -190,6 +194,7 @@ func writeEnvFile(filename string, config map[string]string) error {
 
 func confirm(message, prompt string, def bool) bool {
 	print.Warning(message)
+	fmt.Print(" ")
 
 	if def {
 		print.Warning("%s [Y/n] ", prompt)
