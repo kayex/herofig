@@ -11,9 +11,9 @@ go build -o herofig
 
 ## Usage
 Similar to the Heroku CLI, the application name must be specified with `-a` or `--app` when it cannot be inferred
-from the current working directory. However, note that these flags must be passed as the first argument.
+from the current working directory. Note that these flags must always be passed as the first argument to `herofig` (for now).
 
-### Pulling an entire config
+### Pulling the entire application config
 ```shell
 herofig pull my-app.env
 ```
