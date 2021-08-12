@@ -18,7 +18,7 @@ from the current working directory. Note that these flags must always be passed 
 # Into a file
 herofig pull my-app.env
 
-# Directly onto the command line
+# Directly onto stdout
 herofig pull
 ```
 
