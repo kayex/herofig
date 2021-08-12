@@ -2,9 +2,9 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/kayex/configtool/encryption"
 	"github.com/kayex/configtool/env"
 	"github.com/kayex/configtool/heroku"
 	"io/ioutil"
@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 )
+
+var errUserCancel = errors.New("user canceled")
 
 type Platform interface {
 	Name() string
@@ -24,47 +26,39 @@ type Platform interface {
 
 func main() {
 	// pull - Get config from Heroku and save to file
-	// push append - Add config variables to Heroku without overwriting anything
-	// push new - Add new config variables to Heroku without updating existing ones
-	// push overwrite - Add config variables to Heroku, replacing existing ones
-	// encrypt - Encrypt .env file
-	// decrypt - Decrypt .env file
+	// push - Add config variables to Heroku without overwriting anything
+	// push:new - Add new config variables to Heroku without updating existing ones
+	// push:overwrite - Add config variables to Heroku, replacing existing ones
 
 	start := time.Now()
-
 	l := log.New(os.Stderr, "", log.LstdFlags)
 
-	var app = flag.String("app", "", "The name of the Heroku application.")
-	var secret = flag.String("secret", "", "The file containing the encryption secret.")
-
+	// Accept explicit application name using -a and --app flags to stay consistent with the Heroku CLI.
+	var a = flag.String("a", "", "The Heroku application name.")
+	var app = flag.String("app", "", "The Heroku application name.")
 	flag.Parse()
 	command := flag.Arg(0)
 	args := flag.Args()[1:]
-
-	var p Platform
-	if *app != "" {
-		p = heroku.New(*app)
+	if *a == "" {
+		a = app
 	}
 
+	h := heroku.NewHeroku(*a)
+
 	switch command {
-	// Remote commands.
 	case "get":
-		get(l, p, args)
+		get(l, h, args)
 	case "set":
-		set(l, p, args)
+		set(l, h, args)
 	case "pull":
-		pull(l, p, args)
+		pull(l, h, args)
 	case "push":
-		push(l, p, args)
-	// Local commands.
-	case "keygen":
-		keygen(l, args)
-	case "encrypt":
-		encrypt(l, *secret, args)
-	case "decrypt":
-		decrypt(l, *secret, args)
+		push(l, h, args)
+	case "push:new":
+		pushNew(l, h, args)
+	// TODO: Add push:overwrite
 	default:
-		fmt.Println("Usage: configtool get|set|pull|push|encrypt|decrypt|keygen")
+		fmt.Println("Usage: configtool get|set|pull|push|push:new")
 		os.Exit(1)
 	}
 
@@ -74,7 +68,7 @@ func main() {
 
 func get(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool get [app] [key]")
+		fmt.Println("Usage: configtool get [key]")
 		os.Exit(1)
 	}
 	key := args[0]
@@ -88,7 +82,7 @@ func get(l *log.Logger, p Platform, args []string) {
 
 func set(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool set [app] KEY=VALUE")
+		fmt.Println("Usage: configtool set KEY=VALUE")
 		os.Exit(1)
 	}
 
@@ -108,24 +102,52 @@ func set(l *log.Logger, p Platform, args []string) {
 		l.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	printRemoteSuccess(p.Name(), strings.Join(args, " "))
+	printSuccess(p.Name(), strings.Join(args, " "))
 }
 
-func push(l *log.Logger, p Platform, args []string) {
+func pushNew(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool push [app] [source file]")
+		fmt.Println("Usage: configtool push:new [source file]")
 		os.Exit(1)
 	}
 	source := args[0]
 
-	data, err := ioutil.ReadFile(source)
+	existing, err := p.Get()
 	if err != nil {
-		l.Fatalf("Could not read source file %v: %v", source, err)
+		l.Fatalf("failed getting existing configuration from Heroku: %v", err)
 	}
 
-	config, err := env.Parse(data)
+	config, err := readEnvSource(source)
 	if err != nil {
-		l.Fatalf("error reading source file: %v", err)
+		l.Fatal(err)
+	}
+
+	newConfig := make(map[string]string)
+
+	for k, v := range config {
+		if _, exists := existing[k]; !exists {
+			newConfig[k] = v
+		}
+	}
+
+	err = p.Set(newConfig)
+	if err != nil {
+		l.Fatalf("failed pushing configuration to Heroku: %v", err)
+	}
+
+	printSuccess(p.Name(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", len(config))))
+}
+
+func push(l *log.Logger, p Platform, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: configtool push [source file]")
+		os.Exit(1)
+	}
+	source := args[0]
+
+	config, err := readEnvSource(source)
+	if err != nil {
+		l.Fatal(err)
 	}
 
 	err = p.Set(config)
@@ -133,12 +155,12 @@ func push(l *log.Logger, p Platform, args []string) {
 		l.Fatalf("failed pushing config: %v", err)
 	}
 
-	printRemoteSuccess(p.Name(), fmt.Sprintf("Successfully pushed %d configuration variables.", len(config)))
+	printSuccess(p.Name(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variables", len(config))))
 }
 
 func pull(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool pull [app] [target file]")
+		fmt.Println("Usage: configtool pull [target file]")
 		os.Exit(1)
 	}
 	dest := args[0]
@@ -165,84 +187,44 @@ func pull(l *log.Logger, p Platform, args []string) {
 		l.Fatalf("failed saving config to %s: %v", dest, err)
 	}
 
-	printRemoteSuccess(p.Name(), fmt.Sprintf("Pulled %d configuration variables to %s", len(config), dest))
+	printSuccess(p.Name(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), dest))
 }
 
-func encrypt(l *log.Logger, keyFile string, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: configtool encrypt [file]")
-		os.Exit(1)
-	}
-
-	if keyFile == "" {
-		fmt.Println("Usage: configtool --secret [keyfile] encrypt [file]")
-		os.Exit(1)
-	}
-
-	key, err := ioutil.ReadFile(keyFile)
+func readEnvSource(filename string) (map[string]string, error) {
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Fatalf("could not read keyfile %s: %v", keyFile, err)
+		return nil, fmt.Errorf("could not read source file %v: %v", filename, err)
 	}
 
-	filename := args[0]
-	err = encryption.EncryptFile(key, filename)
+	config, err := env.Parse(data)
 	if err != nil {
-		log.Fatalf("encryption failed: %v", err)
+		return nil, fmt.Errorf("error parsing source file: %v", err)
 	}
 
-	cs := encryption.Describe()
-	printLocalSuccess(filename, fmt.Sprintf("Successfully encrypted %s using %s (key length %d).", filename, cs.Cipher, cs.KeyLength))
+	return config, nil
 }
 
-func decrypt(l *log.Logger, keyFile string, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: configtool --secret [keyfile] decrypt [file]")
-		os.Exit(1)
+func confirm(message, prompt string, def bool) bool {
+	fmt.Println(message)
+
+	if def {
+		fmt.Printf("%s [Y/n] ", prompt)
+	} else {
+		fmt.Printf("%s [y/N] ", prompt)
 	}
 
-	if keyFile == "" {
-		fmt.Println("Usage: configtool --secret [keyfile] encrypt [file]")
-		os.Exit(1)
+	reader := bufio.NewReader(os.Stdin)
+	text, _ := reader.ReadString('\n')
+
+	if text == "\n" {
+		return def
 	}
-
-	key, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		log.Fatalf("could not read keyfile %s: %v", keyFile, err)
-	}
-
-	filename := args[0]
-	newFilename, err := encryption.DecryptFile(key, filename)
-	if err != nil {
-		log.Fatalf("encryption failed: %v", err)
-	}
-
-	printLocalSuccess(newFilename, fmt.Sprintf("Successfully decrypted %s.", filename))
-}
-
-func keygen(l *log.Logger, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: configtool keygen [output file]")
-		os.Exit(1)
-	}
-	output := args[0]
-
-	key := encryption.GenerateKey()
-	err := ioutil.WriteFile(output, key, 0600)
-	if err != nil {
-		l.Fatalf("failed writing keyfile: %v", err)
-	}
-
-	printLocalSuccess(output, fmt.Sprintf("Successfully generated key with length %d.", encryption.Describe().KeyLength))
+	return text == "y\n" || text == "Y\n"
 }
 
 func confirmOverwrite(dest string) bool {
 	if _, err := os.Stat(dest); err == nil {
-		fmt.Printf("The file %s already exists. Pass --overwrite to force overwrite.\n", dest)
-		fmt.Printf("Overwrite? [y/N] ")
-
-		reader := bufio.NewReader(os.Stdin)
-		text, _ := reader.ReadString('\n')
-		return text == "y\n" || text == "Y\n"
+		return confirm(fmt.Sprintf("The file %s already exists. Pass --overwrite to force overwrite.", dest), "Overwrite?", false)
 	}
 	return true
 }
@@ -251,11 +233,7 @@ func export(l *log.Logger, config map[string]string, dest string) error {
 	return ioutil.WriteFile(dest, env.FromConfig(config, "\n"), 0644)
 }
 
-func printLocalSuccess(filename, message string) {
-	fmt.Printf("OK [%s] %s\n", filename, message)
-}
-
-func printRemoteSuccess(app, message string) {
+func printSuccess(app, message string) {
 	fmt.Printf("OK [%s] %s\n", app, message)
 }
 
@@ -270,4 +248,25 @@ func round(d time.Duration, digits int) time.Duration {
 		d = d.Round(time.Microsecond / divs[digits])
 	}
 	return d
+}
+
+func pluralize(word string, count int) string {
+	dict := map[string]struct {
+		One  string
+		Many string
+	}{
+		"variable": {
+			One:  "variable",
+			Many: "variables",
+		},
+	}
+
+	if f, ok := dict[word]; ok {
+		if count == 1 {
+			return f.One
+		}
+		return f.Many
+	}
+
+	return word
 }

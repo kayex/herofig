@@ -1,4 +1,6 @@
-# Binaries for programs and plugins
+# Binaries
+configtool
+
 *.exe
 *.exe~
 *.dll
@@ -16,5 +18,3 @@
 
 # Test .env file
 example.env
-example.env.encrypted
-test.key
