@@ -15,11 +15,10 @@ from the current working directory. Note that these flags must always be passed 
 
 ### Pulling the entire application config
 ```shell
+herofig pull
+
 # Into a file
 herofig pull my-app.env
-
-# Directly onto stdout
-herofig pull
 ```
 
 ### Getting the value of a specific config variable
