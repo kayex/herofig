@@ -35,14 +35,17 @@ func Parse(env io.Reader) (map[string]string, error) {
 	return config, nil
 }
 
-func FromConfig(config map[string]string, separator string) []byte {
+func Write(w io.Writer, config map[string]string, separator string) error {
 	if separator == "" {
 		separator = "\n"
 	}
 
-	var env string
 	for key, value := range config {
-		env += key + "=" + value + separator
+		line := key + "=" + value + separator
+		_, err := fmt.Fprint(w, line)
+		if err != nil {
+			return fmt.Errorf("failed writing env line %s: %v", line, err)
+		}
 	}
-	return []byte(env)
+	return nil
 }

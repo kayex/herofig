@@ -7,7 +7,6 @@ import (
 	"github.com/kayex/herofig/env"
 	"github.com/kayex/herofig/heroku"
 	"github.com/kayex/herofig/print"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -189,7 +188,16 @@ func parseEnvFile(filename string) (map[string]string, error) {
 }
 
 func writeEnvFile(filename string, config map[string]string) error {
-	return ioutil.WriteFile(filename, env.FromConfig(config, "\n"), 0644)
+	f, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed open env file for writing: %v", err)
+	}
+
+	err = env.Write(f, config, "\n")
+	if err != nil {
+		return fmt.Errorf("failed writing to env file: %v", err)
+	}
+	return nil
 }
 
 func confirm(message, prompt string, def bool) bool {
