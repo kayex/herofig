@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/fatih/color"
 	"github.com/kayex/herofig/env"
 	"github.com/kayex/herofig/heroku"
 	"github.com/kayex/herofig/print"
@@ -12,7 +11,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 )
 
 func main() {
@@ -83,60 +81,7 @@ func set(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	printSuccess(h.App(), strings.Join(args, " "))
-}
-
-func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: herofig push:new [source file]")
-		os.Exit(1)
-	}
-	source := args[0]
-
-	existing, err := h.Get()
-	if err != nil {
-		l.Fatalf("failed getting existing configuration from Heroku: %v", err)
-	}
-
-	config, err := parseEnvFile(source)
-	if err != nil {
-		l.Fatal(err)
-	}
-
-	newConfig := make(map[string]string)
-
-	for k, v := range config {
-		if _, exists := existing[k]; !exists {
-			newConfig[k] = v
-		}
-	}
-
-	err = h.Set(newConfig)
-	if err != nil {
-		l.Fatalf("failed pushing configuration to Heroku: %v", err)
-	}
-
-	printSuccess(h.App(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", len(config))))
-}
-
-func push(l *log.Logger, h *heroku.Heroku, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: herofig push [source file]")
-		os.Exit(1)
-	}
-	source := args[0]
-
-	config, err := parseEnvFile(source)
-	if err != nil {
-		l.Fatal(err)
-	}
-
-	err = h.Set(config)
-	if err != nil {
-		l.Fatalf("failed pushing config: %v", err)
-	}
-
-	printSuccess(h.App(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variables", len(config))))
+	success(h.App(), strings.Join(args, " "))
 }
 
 func pull(l *log.Logger, h *heroku.Heroku, args []string) {
@@ -168,19 +113,72 @@ func pull(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed saving config to %s: %v", dest, err)
 	}
 
-	printSuccess(h.App(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), dest))
+	success(h.App(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), dest))
+}
+
+func push(l *log.Logger, h *heroku.Heroku, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: herofig push [env file]")
+		os.Exit(1)
+	}
+	source := args[0]
+
+	config, err := parseEnvFile(source)
+	if err != nil {
+		l.Fatal(err)
+	}
+
+	err = h.Set(config)
+	if err != nil {
+		l.Fatalf("failed pushing config: %v", err)
+	}
+
+	success(h.App(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variables", len(config))))
+}
+
+func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: herofig push:new [env file]")
+		os.Exit(1)
+	}
+	source := args[0]
+
+	existing, err := h.Get()
+	if err != nil {
+		l.Fatalf("failed getting existing configuration from Heroku: %v", err)
+	}
+
+	config, err := parseEnvFile(source)
+	if err != nil {
+		l.Fatal(err)
+	}
+
+	newConfig := make(map[string]string)
+
+	for k, v := range config {
+		if _, exists := existing[k]; !exists {
+			newConfig[k] = v
+		}
+	}
+
+	err = h.Set(newConfig)
+	if err != nil {
+		l.Fatalf("failed pushing configuration to Heroku: %v", err)
+	}
+
+	success(h.App(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", len(config))))
 }
 
 func parseEnvFile(filename string) (map[string]string, error) {
 	data, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("could not read source file %v: %v", filename, err)
+		return nil, fmt.Errorf("could not read env file %v: %v", filename, err)
 	}
 	defer data.Close()
 
 	config, err := env.Parse(data)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing source file: %v", err)
+		return nil, fmt.Errorf("error parsing env file: %v", err)
 	}
 
 	return config, nil
@@ -215,22 +213,8 @@ func confirmOverwrite(filePath string) bool {
 	return true
 }
 
-func printSuccess(app, message string) {
-	color.Green("OK [%s] %s\n", app, message)
-	//fmt.Printf("OK [%s] %s\n", app, message)
-}
-
-func round(d time.Duration, digits int) time.Duration {
-	var divs = []time.Duration{time.Duration(1), time.Duration(10), time.Duration(100), time.Duration(1000)}
-	switch {
-	case d > time.Second:
-		d = d.Round(time.Second / divs[digits])
-	case d > time.Millisecond:
-		d = d.Round(time.Millisecond / divs[digits])
-	case d > time.Microsecond:
-		d = d.Round(time.Microsecond / divs[digits])
-	}
-	return d
+func success(app, message string) {
+	print.Success("OK [%s] %s\n", app, message)
 }
 
 func pluralize(word string, count int) string {
