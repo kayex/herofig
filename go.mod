@@ -1,3 +1,3 @@
-module github.com/kayex/configtool
+module github.com/kayex/herofig
 
 go 1.13
