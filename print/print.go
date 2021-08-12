@@ -4,27 +4,26 @@ import (
 	"github.com/fatih/color"
 )
 
-func Key(msg string, args ...interface{}) {
-	c := color.New(color.FgMagenta)
+func p(c *color.Color, msg string, args []interface{}) {
 	_, _ = c.Printf(msg, args...)
+}
+
+func Key(msg string, args ...interface{}) {
+	p(color.New(color.FgMagenta), msg, args)
 }
 
 func Value(msg string, args ...interface{}) {
-	c := color.New()
-	_, _ = c.Printf(msg, args...)
+	p(color.New(), msg, args)
 }
 
 func Success(msg string, args ...interface{}) {
-	c := color.New(color.FgGreen)
-	_, _ = c.Printf(msg, args...)
+	p(color.New(color.FgGreen), msg, args)
 }
 
 func Warning(msg string, args ...interface{}) {
-	c := color.New(color.FgYellow)
-	_, _ = c.Printf(msg, args...)
+	p(color.New(color.FgYellow), msg, args)
 }
 
 func Error(msg string, args ...interface{}) {
-	c := color.New(color.FgRed)
-	_, _ = c.Printf(msg, args...)
+	p(color.New(color.FgRed), msg, args)
 }
