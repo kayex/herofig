@@ -15,10 +15,10 @@ from the current working directory. Note that these flags must always be passed 
 
 ### Pulling the entire application config
 ```shell
+# Into a file
 herofig pull my-app.env
 
-# Or to just print to command line instead
-
+# Directly onto the command line
 herofig pull
 ```
 

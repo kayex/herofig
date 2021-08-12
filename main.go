@@ -15,7 +15,7 @@ import (
 func main() {
 	l := log.New(os.Stderr, "", log.LstdFlags)
 
-	// Accept explicit application name using -a and --app flags to stay consistent with the Heroku CLI.
+	// Accept explicit application name using -a and --app flags to be consistent with the Heroku CLI.
 	var a = flag.String("a", "", "The Heroku application name.")
 	var app = flag.String("app", "", "The Heroku application name.")
 	flag.Parse()
@@ -148,7 +148,7 @@ func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 
 	existing, err := h.Get()
 	if err != nil {
-		l.Fatalf("failed getting existing configuration from Heroku: %v", err)
+		l.Fatalf("failed getting existing configuration from application: %v", err)
 	}
 
 	config, err := parseEnvFile(source)
@@ -166,7 +166,7 @@ func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 
 	err = h.Set(newConfig)
 	if err != nil {
-		l.Fatalf("failed pushing configuration to Heroku: %v", err)
+		l.Fatalf("failed pushing configuration to application: %v", err)
 	}
 
 	success(h.App(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", len(config))))
