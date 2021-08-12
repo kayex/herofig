@@ -15,7 +15,7 @@ from the current working directory. However, note that these flags must be passe
 
 ### Pulling an entire config
 ```shell
-herofig pull -a my-app my-app.env
+herofig pull my-app.env
 ```
 
 ### Getting the value of a specific config variable
