@@ -3,7 +3,7 @@ package heroku
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kayex/configtool/env"
+	"github.com/kayex/herofig/env"
 	"os/exec"
 )
 

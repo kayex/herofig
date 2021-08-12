@@ -5,8 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/kayex/configtool/env"
-	"github.com/kayex/configtool/heroku"
+	"github.com/kayex/herofig/env"
+	"github.com/kayex/herofig/heroku"
 	"io/ioutil"
 	"log"
 	"os"
@@ -58,7 +58,7 @@ func main() {
 		pushNew(l, h, args)
 	// TODO: Add push:overwrite
 	default:
-		fmt.Println("Usage: configtool get|set|pull|push|push:new")
+		fmt.Println("Usage: herofig get|set|pull|push|push:new")
 		os.Exit(1)
 	}
 
@@ -68,7 +68,7 @@ func main() {
 
 func get(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool get [key]")
+		fmt.Println("Usage: herofig get [key]")
 		os.Exit(1)
 	}
 	key := args[0]
@@ -82,7 +82,7 @@ func get(l *log.Logger, p Platform, args []string) {
 
 func set(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool set KEY=VALUE")
+		fmt.Println("Usage: herofig set KEY=VALUE")
 		os.Exit(1)
 	}
 
@@ -107,7 +107,7 @@ func set(l *log.Logger, p Platform, args []string) {
 
 func pushNew(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool push:new [source file]")
+		fmt.Println("Usage: herofig push:new [source file]")
 		os.Exit(1)
 	}
 	source := args[0]
@@ -140,7 +140,7 @@ func pushNew(l *log.Logger, p Platform, args []string) {
 
 func push(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool push [source file]")
+		fmt.Println("Usage: herofig push [source file]")
 		os.Exit(1)
 	}
 	source := args[0]
@@ -160,7 +160,7 @@ func push(l *log.Logger, p Platform, args []string) {
 
 func pull(l *log.Logger, p Platform, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: configtool pull [target file]")
+		fmt.Println("Usage: herofig pull [target file]")
 		os.Exit(1)
 	}
 	dest := args[0]
