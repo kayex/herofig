@@ -92,7 +92,7 @@ func pull(l *log.Logger, h *heroku.Heroku, args []string) {
 	dest := args[0]
 
 	if !confirmOverwrite(dest) {
-		fmt.Println("Aborting")
+		print.Error("Aborting")
 		os.Exit(2)
 	}
 
@@ -189,7 +189,7 @@ func writeEnvFile(filename string, config map[string]string) error {
 }
 
 func confirm(message, prompt string, def bool) bool {
-	fmt.Println(message)
+	print.Warning(message)
 
 	if def {
 		print.Warning("%s [Y/n] ", prompt)
@@ -206,9 +206,9 @@ func confirm(message, prompt string, def bool) bool {
 	return text == "y\n" || text == "Y\n"
 }
 
-func confirmOverwrite(filePath string) bool {
-	if _, err := os.Stat(filePath); err == nil {
-		return confirm(fmt.Sprintf("The file %s already exists.", filePath), "Overwrite?", false)
+func confirmOverwrite(filename string) bool {
+	if _, err := os.Stat(filename); err == nil {
+		return confirm(fmt.Sprintf("The file %s already exists.", filename), "Overwrite?", false)
 	}
 	return true
 }
