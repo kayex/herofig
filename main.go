@@ -1,18 +1,15 @@
 package main
 
 import (
-	"bufio"
-	"crypto/sha1"
 	"flag"
 	"fmt"
+	"github.com/kayex/herofig/config"
+	"github.com/kayex/herofig/console"
 	"github.com/kayex/herofig/env"
 	"github.com/kayex/herofig/heroku"
 	"github.com/kayex/herofig/print"
-	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -74,18 +71,18 @@ func Set(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 		os.Exit(1)
 	}
 
-	config := make(map[string]string)
+	cfg := make(config.Config)
 	for _, pair := range args {
 		k, v, err := env.ParsePair(pair)
 		if err != nil {
 			l.Fatalf("failed parsing variables: %v", err)
 		}
-		config[k] = v
+		cfg[k] = v
 	}
 
 	p.Printf("Setting ")
 	i := 0
-	for k := range config {
+	for k := range cfg {
 		if i > 0 {
 			p.Print(", ")
 		}
@@ -96,12 +93,12 @@ func Set(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	p.App(h.App())
 	p.Printf("...\n")
 
-	err := h.SetConfig(config)
+	err := h.SetConfig(cfg)
 	if err != nil {
 		l.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	p.Success("Successfully set %d config %s\n", len(config), pluralize("variable", "", "s", len(config)))
+	p.Success("Successfully set %d config %s\n", len(cfg), pluralize("variable", "", "s", len(cfg)))
 }
 
 func Pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
@@ -109,7 +106,7 @@ func Pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) >= 1 {
 		destination = args[0]
 
-		if !confirmOverwrite(p, destination) {
+		if !console.ConfirmOverwrite(p, destination) {
 			p.Error("Aborting\n")
 			os.Exit(2)
 		}
@@ -119,13 +116,13 @@ func Pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	p.App(h.App())
 	p.Printf("...\n")
 
-	config, err := h.Config()
+	cfg, err := h.Config()
 	if err != nil {
 		l.Fatalf("failed pulling config: %v", err)
 	}
 
 	if destination == "" {
-		for k, v := range config {
+		for k, v := range cfg {
 			p.ConfigKey(k)
 			p.Print("=")
 			p.ConfigValue(v)
@@ -134,12 +131,12 @@ func Pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 		return
 	}
 
-	err = writeEnvFile(destination, config)
+	err = env.Save(destination, cfg)
 	if err != nil {
 		l.Fatalf("failed saving config to %s: %v", destination, err)
 	}
 
-	p.Success("Pulled %d configuration variables into ", len(config))
+	p.Success("Pulled %d configuration variables into ", len(cfg))
 	p.LocalFile(destination)
 	p.Newline()
 }
@@ -151,7 +148,7 @@ func Push(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	}
 	source := args[0]
 
-	config, err := parseEnvFile(source)
+	config, err := env.Open(source)
 	if err != nil {
 		l.Fatal(err)
 	}
@@ -176,7 +173,7 @@ func PushNew(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed getting existing config from application: %v", err)
 	}
 
-	config, err := parseEnvFile(source)
+	config, err := env.Open(source)
 	if err != nil {
 		l.Fatal(err)
 	}
@@ -203,16 +200,18 @@ func Search(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	}
 	query := args[0]
 
-	config, err := h.Config()
+	cfg, err := h.Config()
 	if err != nil {
 		l.Fatalf("failed getting config from application: %v", err)
 	}
 
-	for k, v := range config {
-		indices := substringIndexes(k, query)
+	cmp := substringSearch
+
+	for k, v := range cfg {
+		indices := cmp(k, query)
 		if len(indices) > 0 {
 		IterateRunes:
-			// Iterate over runes to apply alternative output styling to characters matched by the search.
+			// Iterate over individual runes to apply highlighting to characters matched by the search.
 			for pos, r := range []rune(k) {
 				rs := string(r)
 				for _, i := range indices {
@@ -232,127 +231,38 @@ func Search(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 }
 
 func Hash(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
-	localEnvFiles := findEnvFiles(l, ".")
+	localEnvFiles, err := env.Find(l, ".")
+	if err != nil {
+		l.Fatal(fmt.Errorf("failed searching for .env files: %v", err))
+	}
 	for _, envFile := range localEnvFiles {
-		localConfig, err := parseEnvFile(envFile)
+		localCfg, err := env.Open(envFile)
 		if err != nil {
 			l.Fatal(err)
 		}
 
 		p.LocalFile(envFile)
 		p.Space()
-		p.Print(hash(localConfig))
+		hash := localCfg.Hash()
+		p.Printf("%s %x", hash.Mnemonic(), hash)
 		p.Newline()
 	}
 	if len(localEnvFiles) > 0 {
 		p.Newline()
 	}
 
-	config, err := h.Config()
+	cfg, err := h.Config()
 	if err != nil {
 		l.Fatalf("failed getting config from application: %v", err)
 	}
 	p.App(h.App())
 	p.Space()
-	p.Print(hash(config))
+	hash := cfg.Hash()
+	p.Printf("%s %x", hash.Mnemonic(), hash)
 	p.Newline()
 }
 
-func hash(config map[string]string) string {
-	lines := make([]string, 0, len(config))
-	for k, v := range config {
-		lines = append(lines, env.Line(k, v))
-	}
-	sort.Strings(lines)
-
-	h := sha1.New()
-	for _, l := range lines {
-		h.Write([]byte(l))
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func parseEnvFile(filename string) (map[string]string, error) {
-	data, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("could not read env file %v: %v", filename, err)
-	}
-	defer data.Close()
-
-	config, err := env.Parse(data)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing env file: %v", err)
-	}
-
-	return config, nil
-}
-
-func writeEnvFile(filename string, config map[string]string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("failed open env file for writing: %v", err)
-	}
-
-	err = env.Write(f, config)
-	if err != nil {
-		return fmt.Errorf("failed writing to env file: %v", err)
-	}
-	return nil
-}
-
-func findEnvFiles(l *log.Logger, root string) []string {
-	extension := ".env"
-	var paths []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if filepath.Ext(d.Name()) == extension {
-			paths = append(paths, path)
-		}
-		return nil
-	})
-	if err != nil {
-		l.Fatal(fmt.Errorf("failed searching for .env files: %v", err))
-	}
-	return paths
-}
-
-func confirm(p *print.Printer, message, prompt string, def bool) bool {
-	p.Warning(message)
-	p.Print(" ")
-
-	if def {
-		p.Warning("%s [Y/n] ", prompt)
-	} else {
-		p.Warning("%s [y/N] ", prompt)
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	text, _ := reader.ReadString('\n')
-
-	if text == "\n" {
-		return def
-	}
-	return text == "y\n" || text == "Y\n"
-}
-
-func confirmOverwrite(p *print.Printer, filename string) bool {
-	if _, err := os.Stat(filename); err == nil {
-		return confirm(p, fmt.Sprintf("The file %s already exists.", filename), "Overwrite?", false)
-	}
-	return true
-}
-
-func pluralize(noun, singularSuffix, pluralSuffix string, count int) string {
-	if count == 1 {
-		return noun + singularSuffix
-	}
-	return noun + pluralSuffix
-}
-
-func substringIndexes(haystack, needle string) []int {
+func substringSearch(haystack, needle string) []int {
 	var indices []int
 
 	offset := 0
@@ -368,4 +278,11 @@ func substringIndexes(haystack, needle string) []int {
 	}
 
 	return indices
+}
+
+func pluralize(noun, singularSuffix, pluralSuffix string, count int) string {
+	if count == 1 {
+		return noun + singularSuffix
+	}
+	return noun + pluralSuffix
 }

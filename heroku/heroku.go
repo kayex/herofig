@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kayex/herofig/config"
 	"github.com/kayex/herofig/env"
 	"os/exec"
 )
@@ -16,18 +17,18 @@ func NewHeroku(app string) *Heroku {
 	return &Heroku{app}
 }
 
-func (h *Heroku) Config() (map[string]string, error) {
+func (h *Heroku) Config() (config.Config, error) {
 	res, err := h.run("config", "--json")
 	if err != nil {
 		return nil, err
 	}
 
-	config := make(map[string]string)
-	err = json.Unmarshal(res, &config)
+	cfg := make(map[string]string)
+	err = json.Unmarshal(res, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling config JSON: %v", err)
 	}
-	return config, nil
+	return cfg, nil
 }
 
 func (h *Heroku) ConfigValue(key string) (string, error) {
@@ -43,9 +44,9 @@ func (h *Heroku) SetConfigValue(key, value string) error {
 	return err
 }
 
-func (h *Heroku) SetConfig(config map[string]string) error {
+func (h *Heroku) SetConfig(cfg config.Config) error {
 	var vars []string
-	for k, v := range config {
+	for k, v := range cfg {
 		vars = append(vars, env.KeyValue(k, v))
 	}
 

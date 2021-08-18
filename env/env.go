@@ -3,9 +3,22 @@ package env
 import (
 	"bufio"
 	"fmt"
+	"github.com/kayex/herofig/config"
 	"io"
+	"io/fs"
+	"log"
+	"os"
+	"path/filepath"
 	"strings"
 )
+
+func KeyValue(key, value string) string {
+	return key + "=" + value
+}
+
+func Line(key, value string) string {
+	return KeyValue(key, value) + "\n"
+}
 
 func ParsePair(pair string) (string, string, error) {
 	delimiter := strings.Index(pair, "=")
@@ -20,16 +33,8 @@ func ParsePair(pair string) (string, string, error) {
 	return key, value, nil
 }
 
-func KeyValue(key, value string) string {
-	return key + "=" + value
-}
-
-func Line(key, value string) string {
-	return KeyValue(key, value) + "\n"
-}
-
-func Parse(env io.Reader) (map[string]string, error) {
-	config := make(map[string]string)
+func Parse(env io.Reader) (config.Config, error) {
+	cfg := make(map[string]string)
 
 	scanner := bufio.NewScanner(env)
 	scanner.Split(bufio.ScanLines)
@@ -38,13 +43,13 @@ func Parse(env io.Reader) (map[string]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error processing line: %v", err)
 		}
-		config[k] = v
+		cfg[k] = v
 	}
-	return config, nil
+	return cfg, nil
 }
 
-func Write(w io.Writer, config map[string]string) error {
-	for key, value := range config {
+func Write(w io.Writer, cfg config.Config) error {
+	for key, value := range cfg {
 		line := Line(key, value)
 		_, err := fmt.Fprint(w, line)
 		if err != nil {
@@ -52,4 +57,50 @@ func Write(w io.Writer, config map[string]string) error {
 		}
 	}
 	return nil
+}
+
+func Open(filename string) (config.Config, error) {
+	data, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("could not read env file %v: %v", filename, err)
+	}
+	defer data.Close()
+
+	cfg, err := Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing env file: %v", err)
+	}
+
+	return cfg, nil
+}
+
+func Save(filename string, cfg config.Config) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed open env file for writing: %v", err)
+	}
+
+	err = Write(f, cfg)
+	if err != nil {
+		return fmt.Errorf("failed writing to env file: %v", err)
+	}
+	return nil
+}
+
+func Find(l *log.Logger, root string) ([]string, error) {
+	extension := ".env"
+	var paths []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if filepath.Ext(d.Name()) == extension {
+			paths = append(paths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed searching for .env files: %v", err)
+	}
+	return paths, nil
 }
