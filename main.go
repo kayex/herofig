@@ -71,8 +71,6 @@ func Set(h *heroku.Heroku, args []string) {
 		cfg[k] = v
 	}
 
-	fmt.Printf("Setting ")
-
 	var keys []string
 	for k := range cfg {
 		keys = append(keys, console.ConfigKey(k))
@@ -85,7 +83,7 @@ func Set(h *heroku.Heroku, args []string) {
 		console.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	fmt.Printf("%s\n", console.Success(fmt.Sprintf("Successfully set %d configuration %s", len(cfg), pluralize("variable", "", "s", len(cfg)))))
+	fmt.Printf(console.Success(fmt.Sprintf("Successfully set %d configuration %s\n", len(cfg), pluralize("variable", "", "s", len(cfg)))))
 }
 
 func Pull(h *heroku.Heroku, args []string) {
@@ -135,7 +133,7 @@ func Push(h *heroku.Heroku, args []string) {
 		console.Fatalf("failed pushing config: %v", err)
 	}
 
-	fmt.Printf("%s\n", console.Success(fmt.Sprintf("Successfully pushed %d configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg)))))
+	fmt.Printf(console.Success(fmt.Sprintf("Successfully pushed %d configuration %s.\n", len(cfg), pluralize("variable", "", "s", len(cfg)))))
 }
 
 func PushNew(h *heroku.Heroku, args []string) {
