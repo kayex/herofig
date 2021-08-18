@@ -2,13 +2,17 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha1"
 	"flag"
 	"fmt"
 	"github.com/kayex/herofig/env"
 	"github.com/kayex/herofig/heroku"
 	"github.com/kayex/herofig/print"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -34,16 +38,18 @@ func main() {
 		Get(l, p, h, args)
 	case "set":
 		Set(l, p, h, args)
-	case "search":
-		Search(l, p, h, args)
 	case "pull":
 		Pull(l, p, h, args)
 	case "push":
 		Push(l, p, h, args)
 	case "push:new":
 		PushNew(l, p, h, args)
+	case "search":
+		Search(l, p, h, args)
+	case "hash":
+		Hash(l, p, h, args)
 	default:
-		p.Println("Usage: herofig get|set|search|pull|push|push:new")
+		p.Println("Usage: herofig get|set|pull|push|push:new|search|hash")
 		os.Exit(1)
 	}
 }
@@ -87,7 +93,7 @@ func Set(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 		i++
 	}
 	p.Print(" on ")
-	p.Remote(h.App())
+	p.App(h.App())
 	p.Printf("...\n")
 
 	err := h.SetConfig(config)
@@ -110,7 +116,7 @@ func Pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	}
 
 	p.Print("Pulling config from ")
-	p.Remote(h.App())
+	p.App(h.App())
 	p.Printf("...\n")
 
 	config, err := h.Config()
@@ -134,7 +140,7 @@ func Pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	}
 
 	p.Success("Pulled %d configuration variables into ", len(config))
-	p.Local(destination)
+	p.LocalFile(destination)
 	p.Newline()
 }
 
@@ -225,6 +231,48 @@ func Search(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	}
 }
 
+func Hash(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
+	localEnvFiles := findEnvFiles(l, ".")
+	for _, envFile := range localEnvFiles {
+		localConfig, err := parseEnvFile(envFile)
+		if err != nil {
+			l.Fatal(err)
+		}
+
+		p.LocalFile(envFile)
+		p.Space()
+		p.Print(hash(localConfig))
+		p.Newline()
+	}
+	if len(localEnvFiles) > 0 {
+		p.Newline()
+	}
+
+	config, err := h.Config()
+	if err != nil {
+		l.Fatalf("failed getting config from application: %v", err)
+	}
+	p.App(h.App())
+	p.Space()
+	p.Print(hash(config))
+	p.Newline()
+}
+
+func hash(config map[string]string) string {
+	lines := make([]string, 0, len(config))
+	for k, v := range config {
+		lines = append(lines, env.Line(k, v))
+	}
+	sort.Strings(lines)
+
+	h := sha1.New()
+	for _, l := range lines {
+		h.Write([]byte(l))
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
 func parseEnvFile(filename string) (map[string]string, error) {
 	data, err := os.Open(filename)
 	if err != nil {
@@ -246,11 +294,29 @@ func writeEnvFile(filename string, config map[string]string) error {
 		return fmt.Errorf("failed open env file for writing: %v", err)
 	}
 
-	err = env.Write(f, config, "\n")
+	err = env.Write(f, config)
 	if err != nil {
 		return fmt.Errorf("failed writing to env file: %v", err)
 	}
 	return nil
+}
+
+func findEnvFiles(l *log.Logger, root string) []string {
+	extension := ".env"
+	var paths []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if filepath.Ext(d.Name()) == extension {
+			paths = append(paths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		l.Fatal(fmt.Errorf("failed searching for .env files: %v", err))
+	}
+	return paths
 }
 
 func confirm(p *print.Printer, message, prompt string, def bool) bool {

@@ -24,6 +24,10 @@ func KeyValue(key, value string) string {
 	return key + "=" + value
 }
 
+func Line(key, value string) string {
+	return KeyValue(key, value) + "\n"
+}
+
 func Parse(env io.Reader) (map[string]string, error) {
 	config := make(map[string]string)
 
@@ -39,13 +43,9 @@ func Parse(env io.Reader) (map[string]string, error) {
 	return config, nil
 }
 
-func Write(w io.Writer, config map[string]string, separator string) error {
-	if separator == "" {
-		separator = "\n"
-	}
-
+func Write(w io.Writer, config map[string]string) error {
 	for key, value := range config {
-		line := key + "=" + value + separator
+		line := Line(key, value)
 		_, err := fmt.Fprint(w, line)
 		if err != nil {
 			return fmt.Errorf("failed writing env line %s: %v", line, err)

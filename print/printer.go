@@ -51,21 +51,19 @@ func (p *Printer) Println(msg ...interface{}) {
 	_, _ = p.color(Default).Println(msg...)
 }
 
+func (p *Printer) Space() {
+	_, _ = p.color(Default).Print(" ")
+}
+
 func (p *Printer) Newline() {
 	_, _ = p.color(Default).Println()
 }
 
-func (p *Printer) OK(id string) {
-	p.Success("OK [")
-	p.Remote(id)
-	p.Success("] ")
-}
-
-func (p *Printer) Remote(msg string, args ...interface{}) {
+func (p *Printer) App(msg string, args ...interface{}) {
 	p.cprintf(p.color(Remote), msg, args)
 }
 
-func (p *Printer) Local(msg string, args ...interface{}) {
+func (p *Printer) LocalFile(msg string, args ...interface{}) {
 	p.cprintf(p.color(Local), msg, args)
 }
 
