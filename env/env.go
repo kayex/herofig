@@ -6,7 +6,6 @@ import (
 	"github.com/kayex/herofig/config"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,7 +86,7 @@ func Save(filename string, cfg config.Config) error {
 	return nil
 }
 
-func Find(l *log.Logger, root string) ([]string, error) {
+func Find(root string) ([]string, error) {
 	extension := ".env"
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
