@@ -27,18 +27,23 @@ func (c Config) Hash() Hash {
 
 type Hash []byte
 
-func (h Hash) Mnemonic() string {
-	// We can fit 2 byte per part.
-	parts := make([]string, 0, len(h)/2)
+func (h Hash) Mnemonic(length uint) string {
+	if length > uint(len(h)/2) {
+		panic(fmt.Errorf("invalid mnemonic length %d for hash of size %d", length, len(h)*8))
+	}
 
-	for i := 0; i < 4; i += 2 {
-		parts = append(parts, string(mnemonize(binary.BigEndian.Uint16(h[i:i+2]))))
+	parts := make([]string, 0, length)
+	for i := uint(0); i < length*2; i += 2 {
+		parts = append(parts, string(proquint(binary.BigEndian.Uint16(h[i:i+2]))))
 	}
 
 	return strings.Join(parts, "-")
 }
 
-func mnemonize(x uint16) []byte {
+// proquint returns a deterministic, pronouncable quintuplet of alternating unambiguous consonants and vowels
+// based on the value of x.
+// https://arxiv.org/html/0901.4016
+func proquint(x uint16) []byte {
 	vowels := []byte("aiou")
 	consonants := []byte("bdfghjklmnprstvz")
 
