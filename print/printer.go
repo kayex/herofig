@@ -65,17 +65,17 @@ func (p *Printer) Remote(msg string, args ...interface{}) {
 	p.cprintf(p.color(Remote), msg, args)
 }
 
-func (p *Printer) RemoteBold(msg string, args ...interface{}) {
-	c := *p.color(Remote)
-	p.cprintf(c.Add(color.BgBlack), msg, args)
-}
-
 func (p *Printer) Local(msg string, args ...interface{}) {
 	p.cprintf(p.color(Local), msg, args)
 }
 
 func (p *Printer) ConfigKey(key string, args ...interface{}) {
 	p.cprintf(p.color(Remote), key, args)
+}
+
+func (p *Printer) ConfigKeyHighlighted(msg string, args ...interface{}) {
+	c := *p.color(Remote)
+	p.cprintf(c.Add(color.BgBlack), msg, args)
 }
 
 func (p *Printer) ConfigValue(value string, args ...interface{}) {

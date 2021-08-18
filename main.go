@@ -211,7 +211,7 @@ func Search(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 				rs := string(r)
 				for _, i := range indices {
 					if pos >= i && pos <= (i+utf8.RuneCountInString(query)-1) {
-						p.RemoteBold(rs)
+						p.ConfigKeyHighlighted(rs)
 						continue IterateRunes
 					}
 				}
