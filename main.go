@@ -136,7 +136,7 @@ func push(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed pushing config: %v", err)
 	}
 
-	success(h.App(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variables", len(config))))
+	success(h.App(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
 }
 
 func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
@@ -148,7 +148,7 @@ func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 
 	existing, err := h.Config()
 	if err != nil {
-		l.Fatalf("failed getting existing configuration from application: %v", err)
+		l.Fatalf("failed getting existing config from application: %v", err)
 	}
 
 	config, err := parseEnvFile(source)
@@ -166,10 +166,10 @@ func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 
 	err = h.SetConfig(newConfig)
 	if err != nil {
-		l.Fatalf("failed pushing configuration to application: %v", err)
+		l.Fatalf("failed pushing config to application: %v", err)
 	}
 
-	success(h.App(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", len(config))))
+	success(h.App(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
 }
 
 func parseEnvFile(filename string) (map[string]string, error) {
@@ -230,23 +230,9 @@ func success(app, message string) {
 	print.Success("OK [%s] %s\n", app, message)
 }
 
-func pluralize(word string, count int) string {
-	dict := map[string]struct {
-		One  string
-		Many string
-	}{
-		"variable": {
-			One:  "variable",
-			Many: "variables",
-		},
+func pluralize(word, singularSuffix, pluralSuffix string, count int) string {
+	if count == 1 {
+		return word + singularSuffix
 	}
-
-	if f, ok := dict[word]; ok {
-		if count == 1 {
-			return f.One
-		}
-		return f.Many
-	}
-
-	return word
+	return word + pluralSuffix
 }
