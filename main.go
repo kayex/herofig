@@ -97,7 +97,7 @@ func Set(c *console.Console, h *heroku.Heroku, args []string) {
 		c.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	c.Success("Successfully set %d config %s\n", len(cfg), pluralize("variable", "", "s", len(cfg)))
+	c.Success("Successfully set %d configuration %s\n", len(cfg), pluralize("variable", "", "s", len(cfg)))
 }
 
 func Pull(c *console.Console, h *heroku.Heroku, args []string) {
@@ -111,9 +111,9 @@ func Pull(c *console.Console, h *heroku.Heroku, args []string) {
 		}
 	}
 
-	c.Print("Pulling config from ")
+	c.Print("Pulling configuration from ")
 	c.PrintApp(h.App())
-	c.Printf("...\n")
+	c.Print("...\n")
 
 	cfg, err := h.Config()
 	if err != nil {
@@ -147,17 +147,17 @@ func Push(c *console.Console, h *heroku.Heroku, args []string) {
 	}
 	source := args[0]
 
-	config, err := env.Open(source)
+	cfg, err := env.Open(source)
 	if err != nil {
 		c.Fatal(err)
 	}
 
-	err = h.SetConfig(config)
+	err = h.SetConfig(cfg)
 	if err != nil {
 		c.Fatalf("failed pushing config: %v", err)
 	}
 
-	c.Success(fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
+	c.Success(fmt.Sprintf("Successfully pushed %d configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg))))
 }
 
 func PushNew(c *console.Console, h *heroku.Heroku, args []string) {

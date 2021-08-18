@@ -72,9 +72,9 @@ func (h *Heroku) run(script string, args ...string) ([]byte, error) {
 	if err != nil {
 		var e *exec.ExitError
 		if errors.As(err, &e) {
-			return nil, fmt.Errorf("failed invoking Heroku CLI (%w): %s\n", err, string(e.Stderr))
+			return nil, fmt.Errorf("Heroku CLI (%w): %s\n", err, string(e.Stderr))
 		}
-		return nil, fmt.Errorf("failed invoking Heroku CLI: %w\n", err)
+		return nil, fmt.Errorf("Heroku CLI: %w\n", err)
 	}
 	return stdout, err
 }
