@@ -243,7 +243,9 @@ func Hash(c *console.Console, h *heroku.Heroku, args []string) {
 		c.PrintFilePath(envFile)
 		c.PrintSpace()
 		hash := localCfg.Hash()
-		c.Printf("%s %x", hash.Mnemonic(), hash)
+		c.PrintID(hash.Mnemonic())
+		c.PrintSpace()
+		c.Printf("%x", hash)
 		c.PrintNewline()
 	}
 	if len(localEnvFiles) > 0 {
@@ -257,7 +259,9 @@ func Hash(c *console.Console, h *heroku.Heroku, args []string) {
 	c.PrintApp(h.App())
 	c.PrintSpace()
 	hash := cfg.Hash()
-	c.Printf("%s %x", hash.Mnemonic(), hash)
+	c.PrintID(hash.Mnemonic())
+	c.PrintSpace()
+	c.Printf("%x", hash)
 	c.PrintNewline()
 }
 

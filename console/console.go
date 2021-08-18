@@ -17,6 +17,7 @@ const (
 	Error         = Color(color.FgRed)
 	Local         = Color(color.FgCyan)
 	Remote        = Color(color.FgMagenta)
+	ID            = Color(color.FgBlue)
 )
 
 type Console struct {
@@ -114,6 +115,10 @@ func (c *Console) PrintConfigKeyHighlighted(msg string, args ...interface{}) {
 
 func (c *Console) PrintConfigValue(value string, args ...interface{}) {
 	c.cprintf(c.color(Default), value, args)
+}
+
+func (c *Console) PrintID(value string, args ...interface{}) {
+	c.cprintf(c.color(Color(color.FgGreen)), value, args)
 }
 
 func (c *Console) color(col Color) *color.Color {
