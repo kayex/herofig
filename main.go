@@ -14,6 +14,7 @@ import (
 
 func main() {
 	l := log.New(os.Stderr, "", log.LstdFlags)
+	p := print.NewPrinter()
 
 	// Accept explicit application name using -a and --app flags to be consistent with the Heroku CLI.
 	var a = flag.String("a", "", "The Heroku application name.")
@@ -29,24 +30,24 @@ func main() {
 
 	switch command {
 	case "get":
-		get(l, h, args)
+		get(l, p, h, args)
 	case "set":
-		set(l, h, args)
+		set(l, p, h, args)
 	case "pull":
-		pull(l, h, args)
+		pull(l, p, h, args)
 	case "push":
-		push(l, h, args)
+		push(l, p, h, args)
 	case "push:new":
-		pushNew(l, h, args)
+		pushNew(l, p, h, args)
 	default:
-		fmt.Println("Usage: herofig get|set|pull|push|push:new")
+		p.Println("Usage: herofig get|set|pull|push|push:new")
 		os.Exit(1)
 	}
 }
 
-func get(l *log.Logger, h *heroku.Heroku, args []string) {
+func get(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: herofig get [key]")
+		p.Println("Usage: herofig get [key]")
 		os.Exit(1)
 	}
 	key := args[0]
@@ -55,12 +56,12 @@ func get(l *log.Logger, h *heroku.Heroku, args []string) {
 	if err != nil {
 		l.Fatalf("failed getting value for %s: %v", key, err)
 	}
-	fmt.Println(v)
+	p.Print(v)
 }
 
-func set(l *log.Logger, h *heroku.Heroku, args []string) {
+func set(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: herofig set KEY=VALUE")
+		p.Println("Usage: herofig set KEY=VALUE")
 		os.Exit(1)
 	}
 
@@ -73,28 +74,41 @@ func set(l *log.Logger, h *heroku.Heroku, args []string) {
 		config[k] = v
 	}
 
-	fmt.Printf("Setting config on %s...\n", h.App())
+	p.Printf("Setting ")
+	i := 0
+	for k := range config {
+		if i > 0 {
+			p.Print(", ")
+		}
+		p.ConfigKey(k)
+		i++
+	}
+	p.Print(" on ")
+	p.Remote(h.App())
+	p.Printf("...\n")
 
 	err := h.SetConfig(config)
 	if err != nil {
 		l.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	success(h.App(), strings.Join(args, " "))
+	p.Success("Successfully set %d config %s\n", len(config), pluralize("variable", "", "s", len(config)))
 }
 
-func pull(l *log.Logger, h *heroku.Heroku, args []string) {
+func pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	destination := ""
 	if len(args) >= 1 {
 		destination = args[0]
 
-		if !confirmOverwrite(destination) {
-			print.Error("Aborting\n")
+		if !confirmOverwrite(p, destination) {
+			p.Error("Aborting\n")
 			os.Exit(2)
 		}
 	}
 
-	fmt.Printf("Pulling config from %s...\n", h.App())
+	p.Print("Pulling config from ")
+	p.Remote(h.App())
+	p.Printf("...\n")
 
 	config, err := h.Config()
 	if err != nil {
@@ -103,10 +117,10 @@ func pull(l *log.Logger, h *heroku.Heroku, args []string) {
 
 	if destination == "" {
 		for k, v := range config {
-			print.Key(k)
-			fmt.Print("=")
-			print.Value(v)
-			fmt.Print("\n")
+			p.ConfigKey(k)
+			p.Print("=")
+			p.ConfigValue(v)
+			p.Print("\n")
 		}
 		return
 	}
@@ -116,12 +130,14 @@ func pull(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed saving config to %s: %v", destination, err)
 	}
 
-	success(h.App(), fmt.Sprintf("Pulled %d configuration variables into %s", len(config), destination))
+	p.Success("Pulled %d configuration variables into ", len(config))
+	p.Local(destination)
+	p.Newline()
 }
 
-func push(l *log.Logger, h *heroku.Heroku, args []string) {
+func push(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: herofig push [env file]")
+		p.Println("Usage: herofig push [env file]")
 		os.Exit(1)
 	}
 	source := args[0]
@@ -136,12 +152,12 @@ func push(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed pushing config: %v", err)
 	}
 
-	success(h.App(), fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
+	p.Success(fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
 }
 
-func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
+func pushNew(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: herofig push:new [env file]")
+		p.Println("Usage: herofig push:new [env file]")
 		os.Exit(1)
 	}
 	source := args[0]
@@ -169,7 +185,7 @@ func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatalf("failed pushing config to application: %v", err)
 	}
 
-	success(h.App(), fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
+	p.Success(fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
 }
 
 func parseEnvFile(filename string) (map[string]string, error) {
@@ -200,14 +216,14 @@ func writeEnvFile(filename string, config map[string]string) error {
 	return nil
 }
 
-func confirm(message, prompt string, def bool) bool {
-	print.Warning(message)
-	fmt.Print(" ")
+func confirm(p *print.Printer, message, prompt string, def bool) bool {
+	p.Warning(message)
+	p.Print(" ")
 
 	if def {
-		print.Warning("%s [Y/n] ", prompt)
+		p.Warning("%s [Y/n] ", prompt)
 	} else {
-		print.Warning("%s [y/N] ", prompt)
+		p.Warning("%s [y/N] ", prompt)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -219,21 +235,13 @@ func confirm(message, prompt string, def bool) bool {
 	return text == "y\n" || text == "Y\n"
 }
 
-func confirmOverwrite(filename string) bool {
+func confirmOverwrite(p *print.Printer, filename string) bool {
 	if _, err := os.Stat(filename); err == nil {
-		return confirm(fmt.Sprintf("The file %s already exists.", filename), "Overwrite?", false)
+		return confirm(p, fmt.Sprintf("The file %s already exists.", filename), "Overwrite?", false)
 	}
 	return true
 }
 
-func success(app, message string) {
-	print.Success("OK [%s] %s\n", app, message)
-}
-
-// pluralize returns the proper grammatical form of the word noun based on count.
-// By passing a singularSuffix, irregular plural nouns that do not simply add an -(e)s ending can also be pluralized,
-// for example pluralize("g", "oose", "eese", 0).
-//
 func pluralize(noun, singularSuffix, pluralSuffix string, count int) string {
 	if count == 1 {
 		return noun + singularSuffix
