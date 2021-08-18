@@ -4,38 +4,41 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/fatih/color"
-	"log"
 	"os"
 )
 
 type Color int
+type PrintFunc func(format string, a ...interface{}) string
 
 const (
-	Default Color = -1
-	Success       = Color(color.FgGreen)
-	Warning       = Color(color.FgYellow)
-	Error         = Color(color.FgRed)
-	Local         = Color(color.FgCyan)
-	Remote        = Color(color.FgMagenta)
-	ID            = Color(color.FgBlue)
+	colorDefault Color = -1
+	colorSuccess       = Color(color.FgGreen)
+	colorWarning       = Color(color.FgYellow)
+	colorError         = Color(color.FgRed)
+	colorLocal         = Color(color.FgCyan)
+	colorRemote        = Color(color.FgMagenta)
+	colorID            = Color(color.FgGreen)
 )
 
 type Console struct {
+	Output *Output
+}
+
+type Output struct {
 	colors map[Color]*color.Color
 }
 
-func NewConsole(l *log.Logger) *Console {
-	return &Console{colors: make(map[Color]*color.Color)}
+func NewConsole() *Console {
+	return &Console{&Output{make(map[Color]*color.Color)}}
 }
 
 func (c *Console) Confirm(message, prompt string, def bool) bool {
-	c.Warning(message)
-	c.Print(" ")
+	fmt.Printf("%s ", c.Output.Warning()(message))
 
 	if def {
-		c.Warning("%s [Y/n] ", prompt)
+		fmt.Print(c.Output.Warning()(fmt.Sprintf("%s [Y/n] ", prompt)))
 	} else {
-		c.Warning("%s [y/N] ", prompt)
+		fmt.Print(c.Output.Warning()(fmt.Sprintf("%s [y/N] ", prompt)))
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -54,89 +57,69 @@ func (c *Console) ConfirmOverwrite(filename string) bool {
 	return true
 }
 
-func (c *Console) Success(msg string, args ...interface{}) {
-	c.cprintf(c.color(Success), msg, args)
+func (o *Output) Success() PrintFunc {
+	return o.color(colorSuccess).SprintfFunc()
 }
 
-func (c *Console) Warning(msg string, args ...interface{}) {
-	c.cprintf(c.color(Warning), msg, args)
+func (o *Output) Warning() PrintFunc {
+	return o.color(colorWarning).SprintfFunc()
 }
 
-func (c *Console) Error(msg string, args ...interface{}) {
-	c.cprintf(c.color(Error), msg, args)
+func (o *Output) Error() PrintFunc {
+	return o.color(colorError).SprintfFunc()
 }
 
-func (c *Console) Fatal(err error) {
-	c.Print(err)
+func (c *Console) Fatal(v ...interface{}) {
+	fmt.Print(v...)
 	os.Exit(1)
 }
 
 func (c *Console) Fatalf(format string, v ...interface{}) {
-	c.Printf(format, v...)
+	fmt.Printf(format, v...)
 	os.Exit(1)
 }
 
-func (c *Console) Print(msg ...interface{}) {
-	_, _ = c.color(Default).Print(msg...)
+func (o *Output) App() PrintFunc {
+	return o.color(colorRemote).SprintfFunc()
 }
 
-func (c *Console) Printf(msg string, args ...interface{}) {
-	c.cprintf(c.color(Default), msg, args)
+func (o *Output) FilePath() PrintFunc {
+	return o.color(colorLocal).SprintfFunc()
 }
 
-func (c *Console) Println(msg ...interface{}) {
-	_, _ = c.color(Default).Println(msg...)
+func (o *Output) ConfigKey() PrintFunc {
+	return o.color(colorRemote).SprintfFunc()
 }
 
-func (c *Console) PrintSpace() {
-	_, _ = c.color(Default).Print(" ")
+func (o *Output) ConfigKeyHighlighted() PrintFunc {
+	col := *o.color(colorRemote)
+	return col.Add(color.BgBlack).SprintfFunc()
 }
 
-func (c *Console) PrintNewline() {
-	_, _ = c.color(Default).Println()
+func (o *Output) ConfigValue() PrintFunc {
+	return o.color(colorDefault).SprintfFunc()
 }
 
-func (c *Console) PrintApp(msg string, args ...interface{}) {
-	c.cprintf(c.color(Remote), msg, args)
+func (o *Output) ID() PrintFunc {
+	return o.color(colorID).SprintfFunc()
 }
 
-func (c *Console) PrintFilePath(msg string, args ...interface{}) {
-	c.cprintf(c.color(Local), msg, args)
-}
-
-func (c *Console) PrintConfigKey(key string, args ...interface{}) {
-	c.cprintf(c.color(Remote), key, args)
-}
-
-func (c *Console) PrintConfigKeyHighlighted(msg string, args ...interface{}) {
-	col := *c.color(Remote)
-	c.cprintf(col.Add(color.BgBlack), msg, args)
-}
-
-func (c *Console) PrintConfigValue(value string, args ...interface{}) {
-	c.cprintf(c.color(Default), value, args)
-}
-
-func (c *Console) PrintID(value string, args ...interface{}) {
-	c.cprintf(c.color(Color(color.FgGreen)), value, args)
-}
-
-func (c *Console) color(col Color) *color.Color {
-	if existing, ok := c.colors[col]; ok {
+func (o *Output) color(col Color) *color.Color {
+	if existing, ok := o.colors[col]; ok {
 		return existing
 	}
 
 	var newColor *color.Color
-	if col == Default {
+	if col == colorDefault {
 		newColor = color.New()
 	} else {
 		newColor = color.New(color.Attribute(col))
 	}
 
-	c.colors[col] = newColor
+	o.colors[col] = newColor
 	return newColor
 }
 
-func (c *Console) cprintf(col *color.Color, msg string, args []interface{}) {
+func (o *Output) cprintf(col *color.Color, msg string, args []interface{}) {
 	_, _ = col.Printf(msg, args...)
 }

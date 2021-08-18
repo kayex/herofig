@@ -7,16 +7,12 @@ import (
 	"github.com/kayex/herofig/console"
 	"github.com/kayex/herofig/env"
 	"github.com/kayex/herofig/heroku"
-	"log"
 	"os"
 	"strings"
 	"unicode/utf8"
 )
 
 func main() {
-	l := log.New(os.Stderr, "", log.LstdFlags)
-	c := console.NewConsole(l)
-
 	// Accept explicit application name using -a and --app flags to be consistent with the Heroku CLI.
 	var a = flag.String("a", "", "The Heroku application name.")
 	var app = flag.String("app", "", "The Heroku application name.")
@@ -27,6 +23,7 @@ func main() {
 		a = app
 	}
 
+	c := console.NewConsole()
 	h := heroku.NewHeroku(*a)
 
 	switch command {
@@ -45,14 +42,14 @@ func main() {
 	case "hash":
 		Hash(c, h, args)
 	default:
-		c.Println("Usage: herofig get|set|pull|push|push:new|search|hash")
+		fmt.Println("Usage: herofig get|set|pull|push|push:new|search|hash")
 		os.Exit(1)
 	}
 }
 
 func Get(c *console.Console, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		c.Println("Usage: herofig get [key]")
+		fmt.Println("Usage: herofig get [key]")
 		os.Exit(1)
 	}
 	key := args[0]
@@ -61,12 +58,12 @@ func Get(c *console.Console, h *heroku.Heroku, args []string) {
 	if err != nil {
 		c.Fatalf("failed getting value for %s: %v", key, err)
 	}
-	c.Print(v)
+	fmt.Print(v)
 }
 
 func Set(c *console.Console, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		c.Println("Usage: herofig set KEY=VALUE")
+		fmt.Println("Usage: herofig set KEY=VALUE")
 		os.Exit(1)
 	}
 
@@ -79,41 +76,33 @@ func Set(c *console.Console, h *heroku.Heroku, args []string) {
 		cfg[k] = v
 	}
 
-	c.Printf("Setting ")
-	i := 0
+	fmt.Printf("Setting ")
+
+	var keys []string
 	for k := range cfg {
-		if i > 0 {
-			c.Print(", ")
-		}
-		c.PrintConfigKey(k)
-		i++
+		keys = append(keys, c.Output.ConfigKey()(k))
 	}
-	c.Print(" on ")
-	c.PrintApp(h.App())
-	c.Printf("...\n")
+
+	fmt.Printf("Setting %s on %s...\n", strings.Join(keys, ", "), c.Output.App()(h.App()))
 
 	err := h.SetConfig(cfg)
 	if err != nil {
 		c.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
 
-	c.Success("Successfully set %d configuration %s\n", len(cfg), pluralize("variable", "", "s", len(cfg)))
+	fmt.Printf("%s\n", c.Output.Success()(fmt.Sprintf("Successfully set %d configuration %s", len(cfg), pluralize("variable", "", "s", len(cfg)))))
 }
 
 func Pull(c *console.Console, h *heroku.Heroku, args []string) {
 	destination := ""
 	if len(args) >= 1 {
 		destination = args[0]
-
 		if !c.ConfirmOverwrite(destination) {
-			c.Error("Aborting\n")
-			os.Exit(2)
+			c.Fatalf(c.Output.Error()("Aborting\n"))
 		}
 	}
 
-	c.Print("Pulling configuration from ")
-	c.PrintApp(h.App())
-	c.Print("...\n")
+	fmt.Printf("Pulling configuration from %s...\n", c.Output.App()(h.App()))
 
 	cfg, err := h.Config()
 	if err != nil {
@@ -122,10 +111,7 @@ func Pull(c *console.Console, h *heroku.Heroku, args []string) {
 
 	if destination == "" {
 		for k, v := range cfg {
-			c.PrintConfigKey(k)
-			c.Print("=")
-			c.PrintConfigValue(v)
-			c.Print("\n")
+			fmt.Printf("%s=%s\n", c.Output.ConfigKey()(k), c.Output.ConfigValue()(v))
 		}
 		return
 	}
@@ -135,14 +121,12 @@ func Pull(c *console.Console, h *heroku.Heroku, args []string) {
 		c.Fatalf("failed saving config to %s: %v", destination, err)
 	}
 
-	c.Success("Pulled %d configuration variables into ", len(cfg))
-	c.PrintFilePath(destination)
-	c.PrintNewline()
+	fmt.Println(c.Output.Success()(fmt.Sprintf("Pulled %d configuration variables into %s", len(cfg), c.Output.FilePath()(destination))))
 }
 
 func Push(c *console.Console, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		c.Println("Usage: herofig push [env file]")
+		fmt.Println("Usage: herofig push [env file]")
 		os.Exit(1)
 	}
 	source := args[0]
@@ -157,12 +141,12 @@ func Push(c *console.Console, h *heroku.Heroku, args []string) {
 		c.Fatalf("failed pushing config: %v", err)
 	}
 
-	c.Success(fmt.Sprintf("Successfully pushed %d configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg))))
+	fmt.Printf("%s\n", c.Output.Success()(fmt.Sprintf("Successfully pushed %d configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg)))))
 }
 
 func PushNew(c *console.Console, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		c.Println("Usage: herofig push:new [env file]")
+		fmt.Println("Usage: herofig push:new [env file]")
 		os.Exit(1)
 	}
 	source := args[0]
@@ -190,12 +174,12 @@ func PushNew(c *console.Console, h *heroku.Heroku, args []string) {
 		c.Fatalf("failed pushing config to application: %v", err)
 	}
 
-	c.Success(fmt.Sprintf("Successfully pushed %d new configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg))))
+	fmt.Print(c.Output.Success()(fmt.Sprintf("Successfully pushed %d new configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg)))))
 }
 
 func Search(c *console.Console, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
-		c.Println("Usage: herofig search [query]")
+		fmt.Println("Usage: herofig search [query]")
 	}
 	query := args[0]
 
@@ -204,27 +188,24 @@ func Search(c *console.Console, h *heroku.Heroku, args []string) {
 		c.Fatalf("failed getting config from application: %v", err)
 	}
 
-	cmp := substringSearch
+	strategy := substringSearch
 
 	for k, v := range cfg {
-		indices := cmp(k, query)
+		indices := strategy(k, query)
 		if len(indices) > 0 {
 		IterateRunes:
 			// Iterate over individual runes to apply highlighting to characters matched by the search.
 			for pos, r := range []rune(k) {
 				rs := string(r)
 				for _, i := range indices {
-					if pos >= i && pos <= (i+utf8.RuneCountInString(query)-1) {
-						c.PrintConfigKeyHighlighted(rs)
+					if pos >= i && pos < i+utf8.RuneCountInString(query) {
+						fmt.Print(c.Output.ConfigKeyHighlighted()(rs))
 						continue IterateRunes
 					}
 				}
-				c.PrintConfigKey(rs)
+				fmt.Print(c.Output.ConfigKey()(rs))
 			}
-
-			c.PrintConfigValue("=")
-			c.PrintConfigValue(v)
-			c.PrintNewline()
+			fmt.Printf("%s\n", c.Output.ConfigValue()(fmt.Sprintf("%s=", v)))
 		}
 	}
 }
@@ -240,29 +221,19 @@ func Hash(c *console.Console, h *heroku.Heroku, args []string) {
 			c.Fatal(err)
 		}
 
-		c.PrintFilePath(envFile)
-		c.PrintSpace()
 		hash := localCfg.Hash()
-		c.PrintID(hash.Mnemonic(2))
-		c.PrintSpace()
-		c.Printf("%x", hash)
-		c.PrintNewline()
+		fmt.Printf("%s %s %x\n", c.Output.FilePath()(envFile), c.Output.ID()(hash.Mnemonic(2)), hash)
 	}
 	if len(localEnvFiles) > 0 {
-		c.PrintNewline()
+		fmt.Println()
 	}
 
 	cfg, err := h.Config()
 	if err != nil {
 		c.Fatalf("failed getting config from application: %v", err)
 	}
-	c.PrintApp(h.App())
-	c.PrintSpace()
 	hash := cfg.Hash()
-	c.PrintID(hash.Mnemonic(2))
-	c.PrintSpace()
-	c.Printf("%x", hash)
-	c.PrintNewline()
+	fmt.Printf("%s %s %x\n", c.Output.App()(h.App()), c.Output.ID()(hash.Mnemonic(2)), hash)
 }
 
 func substringSearch(haystack, needle string) []int {
@@ -276,7 +247,7 @@ func substringSearch(haystack, needle string) []int {
 		}
 
 		indices = append(indices, offset+i)
-		offset = offset + utf8.RuneCountInString(needle)
+		offset += utf8.RuneCountInString(needle)
 		haystack = string([]rune(haystack)[offset:])
 	}
 
