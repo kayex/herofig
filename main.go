@@ -230,9 +230,13 @@ func success(app, message string) {
 	print.Success("OK [%s] %s\n", app, message)
 }
 
-func pluralize(word, singularSuffix, pluralSuffix string, count int) string {
+// pluralize returns the proper grammatical form of the word noun based on count.
+// By passing a singularSuffix, irregular plural nouns that do not simply add an -(e)s ending can also be pluralized,
+// for example pluralize("g", "oose", "eese", 0).
+//
+func pluralize(noun, singularSuffix, pluralSuffix string, count int) string {
 	if count == 1 {
-		return word + singularSuffix
+		return noun + singularSuffix
 	}
-	return word + pluralSuffix
+	return noun + pluralSuffix
 }
