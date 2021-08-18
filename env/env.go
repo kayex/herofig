@@ -8,12 +8,16 @@ import (
 )
 
 func ParsePair(pair string) (string, string, error) {
-	parts := strings.Split(pair, "=")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid variable format: %v", pair)
+	delimiter := strings.Index(pair, "=")
+	if delimiter < 1 {
+		return "", "", fmt.Errorf("invalid env variable format: %v", pair)
 	}
+	pr := []rune(pair)
 
-	return parts[0], parts[1], nil
+	key := string(pr[:delimiter])
+	value := string(pr[delimiter+1:])
+
+	return key, value, nil
 }
 
 func KeyValue(key, value string) string {
