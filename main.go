@@ -51,7 +51,7 @@ func get(l *log.Logger, h *heroku.Heroku, args []string) {
 	}
 	key := args[0]
 
-	v, err := h.GetValue(key)
+	v, err := h.ConfigValue(key)
 	if err != nil {
 		l.Fatalf("failed getting value for %s: %v", key, err)
 	}
@@ -75,7 +75,7 @@ func set(l *log.Logger, h *heroku.Heroku, args []string) {
 
 	fmt.Printf("Setting config on %s...\n", h.App())
 
-	err := h.Set(config)
+	err := h.SetConfig(config)
 	if err != nil {
 		l.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
 	}
@@ -96,7 +96,7 @@ func pull(l *log.Logger, h *heroku.Heroku, args []string) {
 
 	fmt.Printf("Pulling config from %s...\n", h.App())
 
-	config, err := h.Get()
+	config, err := h.Config()
 	if err != nil {
 		l.Fatalf("failed pulling config: %v", err)
 	}
@@ -131,7 +131,7 @@ func push(l *log.Logger, h *heroku.Heroku, args []string) {
 		l.Fatal(err)
 	}
 
-	err = h.Set(config)
+	err = h.SetConfig(config)
 	if err != nil {
 		l.Fatalf("failed pushing config: %v", err)
 	}
@@ -146,7 +146,7 @@ func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 	}
 	source := args[0]
 
-	existing, err := h.Get()
+	existing, err := h.Config()
 	if err != nil {
 		l.Fatalf("failed getting existing configuration from application: %v", err)
 	}
@@ -164,7 +164,7 @@ func pushNew(l *log.Logger, h *heroku.Heroku, args []string) {
 		}
 	}
 
-	err = h.Set(newConfig)
+	err = h.SetConfig(newConfig)
 	if err != nil {
 		l.Fatalf("failed pushing configuration to application: %v", err)
 	}

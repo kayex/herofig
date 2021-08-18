@@ -16,7 +16,7 @@ func NewHeroku(app string) *Heroku {
 	return &Heroku{app}
 }
 
-func (h *Heroku) Get() (map[string]string, error) {
+func (h *Heroku) Config() (map[string]string, error) {
 	res, err := h.run("config", "--json")
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func (h *Heroku) Get() (map[string]string, error) {
 	return config, nil
 }
 
-func (h *Heroku) GetValue(key string) (string, error) {
+func (h *Heroku) ConfigValue(key string) (string, error) {
 	res, err := h.run("config:get", key)
 	if err != nil {
 		return "", err
@@ -38,12 +38,12 @@ func (h *Heroku) GetValue(key string) (string, error) {
 	return string(res), nil
 }
 
-func (h *Heroku) SetValue(key, value string) error {
+func (h *Heroku) SetConfigValue(key, value string) error {
 	_, err := h.run("config:set", env.KeyValue(key, value))
 	return err
 }
 
-func (h *Heroku) Set(config map[string]string) error {
+func (h *Heroku) SetConfig(config map[string]string) error {
 	var vars []string
 	for k, v := range config {
 		vars = append(vars, env.KeyValue(k, v))
