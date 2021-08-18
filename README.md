@@ -21,7 +21,7 @@ herofig pull
 herofig pull my-app.env
 ```
 
-### Getting the value of a specific config variable
+### Getting the value of a single config variable
 ```shell
 herofig get AWS_S3_BUCKET
 ```
@@ -39,4 +39,14 @@ herofig push:new local.env
 ### Setting the value of config variables
 ```shell
 herofig set AWS_S3_REGION=eu-north-1 AWS_S3_BUCKET=bucket
+```
+
+### Searching for config variables (fuzzy matched)
+```shell
+herofig search AWS
+```
+
+### Comparing configurations
+```shell
+herofig hash
 ```
