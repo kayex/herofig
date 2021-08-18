@@ -20,11 +20,15 @@ const (
 )
 
 type Console struct {
+	l      *log.Logger
 	colors map[Color]*color.Color
 }
 
 func NewConsole(l *log.Logger) *Console {
-	return &Console{colors: make(map[Color]*color.Color)}
+	return &Console{
+		l:      l,
+		colors: make(map[Color]*color.Color),
+	}
 }
 
 func (c *Console) Confirm(message, prompt string, def bool) bool {
@@ -66,11 +70,11 @@ func (c *Console) Error(msg string, args ...interface{}) {
 }
 
 func (c *Console) Fatal(err error) {
-	log.Fatal(err)
+	c.l.Fatal(err)
 }
 
 func (c *Console) Fatalf(format string, v ...interface{}) {
-	log.Fatalf(format, v...)
+	c.l.Fatalf(format, v...)
 }
 
 func (c *Console) Print(msg ...interface{}) {
