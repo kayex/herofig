@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 func main() {
@@ -30,22 +31,24 @@ func main() {
 
 	switch command {
 	case "get":
-		get(l, p, h, args)
+		Get(l, p, h, args)
 	case "set":
-		set(l, p, h, args)
+		Set(l, p, h, args)
+	case "search":
+		Search(l, p, h, args)
 	case "pull":
-		pull(l, p, h, args)
+		Pull(l, p, h, args)
 	case "push":
-		push(l, p, h, args)
+		Push(l, p, h, args)
 	case "push:new":
-		pushNew(l, p, h, args)
+		PushNew(l, p, h, args)
 	default:
-		p.Println("Usage: herofig get|set|pull|push|push:new")
+		p.Println("Usage: herofig get|set|search|pull|push|push:new")
 		os.Exit(1)
 	}
 }
 
-func get(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
+func Get(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		p.Println("Usage: herofig get [key]")
 		os.Exit(1)
@@ -59,7 +62,7 @@ func get(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	p.Print(v)
 }
 
-func set(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
+func Set(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		p.Println("Usage: herofig set KEY=VALUE")
 		os.Exit(1)
@@ -95,7 +98,7 @@ func set(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	p.Success("Successfully set %d config %s\n", len(config), pluralize("variable", "", "s", len(config)))
 }
 
-func pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
+func Pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	destination := ""
 	if len(args) >= 1 {
 		destination = args[0]
@@ -135,7 +138,7 @@ func pull(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	p.Newline()
 }
 
-func push(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
+func Push(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		p.Println("Usage: herofig push [env file]")
 		os.Exit(1)
@@ -155,7 +158,7 @@ func push(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	p.Success(fmt.Sprintf("Successfully pushed %d configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
 }
 
-func pushNew(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
+func PushNew(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	if len(args) < 1 {
 		p.Println("Usage: herofig push:new [env file]")
 		os.Exit(1)
@@ -186,6 +189,40 @@ func pushNew(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
 	}
 
 	p.Success(fmt.Sprintf("Successfully pushed %d new configuration %s.", len(config), pluralize("variable", "", "s", len(config))))
+}
+
+func Search(l *log.Logger, p *print.Printer, h *heroku.Heroku, args []string) {
+	if len(args) < 1 {
+		p.Println("Usage: herofig search [query]")
+	}
+	query := args[0]
+
+	config, err := h.Config()
+	if err != nil {
+		l.Fatalf("failed getting config from application: %v", err)
+	}
+
+	for k, v := range config {
+		indices := substringIndexes(k, query)
+		if len(indices) > 0 {
+		IterateRunes:
+			// Iterate over runes to apply alternative output styling to characters matched by the search.
+			for pos, r := range []rune(k) {
+				rs := string(r)
+				for _, i := range indices {
+					if pos >= i && pos <= (i+utf8.RuneCountInString(query)-1) {
+						p.RemoteBold(rs)
+						continue IterateRunes
+					}
+				}
+				p.ConfigKey(rs)
+			}
+
+			p.ConfigValue("=")
+			p.ConfigValue(v)
+			p.Newline()
+		}
+	}
 }
 
 func parseEnvFile(filename string) (map[string]string, error) {
@@ -247,4 +284,22 @@ func pluralize(noun, singularSuffix, pluralSuffix string, count int) string {
 		return noun + singularSuffix
 	}
 	return noun + pluralSuffix
+}
+
+func substringIndexes(haystack, needle string) []int {
+	var indices []int
+
+	offset := 0
+	for {
+		i := strings.Index(haystack, needle)
+		if i == -1 {
+			break
+		}
+
+		indices = append(indices, offset+i)
+		offset = offset + utf8.RuneCountInString(needle)
+		haystack = string([]rune(haystack)[offset:])
+	}
+
+	return indices
 }
