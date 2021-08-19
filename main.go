@@ -160,12 +160,17 @@ func PushNew(h *heroku.Heroku, args []string) {
 		}
 	}
 
+	if len(newConfig) == 0 {
+		fmt.Println(console.Success("No new configuration variables."))
+		return
+	}
+
 	err = h.SetConfig(newConfig)
 	if err != nil {
 		console.Fatalf("failed pushing config to application: %v", err)
 	}
 
-	fmt.Print(console.Success(fmt.Sprintf("Successfully pushed %d new configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg)))))
+	fmt.Println(console.Success(fmt.Sprintf("Successfully pushed %d new configuration %s.", len(newConfig), pluralize("variable", "", "s", len(newConfig)))))
 }
 
 func Search(h *heroku.Heroku, args []string) {
@@ -196,7 +201,7 @@ func Search(h *heroku.Heroku, args []string) {
 				}
 				fmt.Print(console.ConfigKey(rs))
 			}
-			fmt.Printf("%s\n", console.ConfigValue(fmt.Sprintf("%s=", v)))
+			fmt.Printf("=%s\n", console.ConfigValue(v))
 		}
 	}
 }
