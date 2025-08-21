@@ -41,7 +41,7 @@ herofig push:new local.env
 herofig set AWS_S3_REGION=eu-north-1 AWS_S3_BUCKET=bucket
 ```
 
-### Searching for config variables (fuzzy matched)
+### Searching for config variables
 ```shell
 herofig search AWS
 ```

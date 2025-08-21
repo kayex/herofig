@@ -13,6 +13,8 @@ func TestSubstringSearch(t *testing.T) {
 		want     []int
 	}{
 		{"SOME_KEY", "SOME", []int{0}},
+		{"SOME_KEY", "some", []int{0}},
+		{"some_key", "SOME", []int{0}},
 		{"SOME_KEY", "KEY", []int{5}},
 		{"A_A_KEY", "A", []int{0, 2}},
 		{"SOME_KEY", "NOT_HERE", nil},

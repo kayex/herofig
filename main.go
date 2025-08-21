@@ -230,6 +230,8 @@ func Hash(h *Heroku, args []string) {
 }
 
 func substringSearch(haystack, needle string) []int {
+	haystack = strings.ToLower(haystack)
+	needle = strings.ToLower(needle)
 	var indices []int
 
 	for {
