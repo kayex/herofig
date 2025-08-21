@@ -183,10 +183,8 @@ func Search(h *Heroku, args []string) {
 		console.Fatalf("getting config from application: %v", err)
 	}
 
-	strategy := substringSearch
-
 	for k, v := range cfg {
-		indices := strategy(k, query)
+		indices := substringSearch(k, query)
 		if len(indices) > 0 {
 		IterateRunes:
 			// Iterate over individual runes to apply highlighting to characters matched by the search.
@@ -234,16 +232,14 @@ func Hash(h *Heroku, args []string) {
 func substringSearch(haystack, needle string) []int {
 	var indices []int
 
-	offset := 0
 	for {
 		i := strings.Index(haystack, needle)
 		if i == -1 {
 			break
 		}
 
-		indices = append(indices, offset+i)
-		offset += utf8.RuneCountInString(needle)
-		haystack = string([]rune(haystack)[offset:])
+		indices = append(indices, i+len(needle)*len(indices))
+		haystack = haystack[i+len(needle):]
 	}
 
 	return indices
