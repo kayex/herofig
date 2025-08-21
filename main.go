@@ -62,8 +62,8 @@ func Set(h *Heroku, args []string) {
 	}
 
 	cfg := make(Config)
-	for _, pair := range args {
-		k, v, err := ParsePair(pair)
+	for _, v := range args {
+		k, v, err := ParseVar(v)
 		if err != nil {
 			console.Fatalf("parsing variables: %v", err)
 		}
@@ -100,10 +100,11 @@ func Pull(h *Heroku, args []string) {
 	if err != nil {
 		console.Fatalf("pulling config: %v", err)
 	}
+	ordered := cfg.Ordered()
 
 	if destination == "" {
-		for k, v := range cfg {
-			fmt.Printf("%s=%s\n", console.ConfigKey(k), console.ConfigValue(v))
+		for _, v := range ordered {
+			fmt.Printf("%s=%s\n", console.ConfigKey(v.Key), console.ConfigValue(v.Value))
 		}
 		return
 	}
@@ -183,12 +184,12 @@ func Search(h *Heroku, args []string) {
 		console.Fatalf("getting config from application: %v", err)
 	}
 
-	for k, v := range cfg {
-		indices := substringSearch(k, query)
+	for _, v := range cfg.Ordered() {
+		indices := substringSearch(v.Key, query)
 		if len(indices) > 0 {
 		IterateRunes:
 			// Iterate over individual runes to apply highlighting to characters matched by the search.
-			for pos, r := range []rune(k) {
+			for pos, r := range []rune(v.Key) {
 				rs := string(r)
 				for _, i := range indices {
 					if pos >= i && pos < i+utf8.RuneCountInString(query) {
@@ -198,7 +199,7 @@ func Search(h *Heroku, args []string) {
 				}
 				fmt.Print(console.ConfigKey(rs))
 			}
-			fmt.Printf("=%s\n", console.ConfigValue(v))
+			fmt.Printf("=%s\n", console.ConfigValue(v.Value))
 		}
 	}
 }

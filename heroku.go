@@ -38,14 +38,14 @@ func (h *Heroku) ConfigValue(key string) (string, error) {
 }
 
 func (h *Heroku) SetConfigValue(key, value string) error {
-	_, err := h.run("config:set", KeyValue(key, value))
+	_, err := h.run("config:set", Var{key, value}.String())
 	return err
 }
 
 func (h *Heroku) SetConfig(cfg Config) error {
 	var vars []string
 	for k, v := range cfg {
-		vars = append(vars, KeyValue(k, v))
+		vars = append(vars, Var{k, v}.String())
 	}
 
 	_, err := h.run("config:set", vars...)

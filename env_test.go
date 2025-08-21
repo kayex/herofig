@@ -6,9 +6,9 @@ import (
 	. "github.com/kayex/herofig"
 )
 
-func TestParsePair(t *testing.T) {
+func TestParseVar(t *testing.T) {
 	cases := []struct {
-		pair  string
+		v     string
 		key   string
 		value string
 	}{
@@ -17,32 +17,32 @@ func TestParsePair(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.pair, func(t *testing.T) {
-			key, value, err := ParsePair(c.pair)
+		t.Run(c.v, func(t *testing.T) {
+			key, value, err := ParseVar(c.v)
 			if err != nil {
-				t.Fatalf("ParsePair(%s): %v", c.pair, err)
+				t.Fatalf("ParseVar(%s): %v", c.v, err)
 			}
 
 			if key != c.key || value != c.value {
-				t.Errorf("ParsePair(%s) = %s, %s; got %s, %s", c.pair, c.key, c.value, key, value)
+				t.Errorf("ParseVar(%s) = %s, %s; got %s, %s", c.v, c.key, c.value, key, value)
 			}
 		})
 	}
 }
 
-func TestParsePair_Errors(t *testing.T) {
+func TestParseVar_Errors(t *testing.T) {
 	cases := []struct {
 		name string
-		pair string
+		v    string
 	}{
 		{"no key", "=value"},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			key, value, err := ParsePair(c.pair)
+			key, value, err := ParseVar(c.v)
 			if err == nil {
-				t.Errorf("ParsePair(%s) = %q, %q, %v; want error", c.pair, key, value, err)
+				t.Errorf("ParseVar(%s) = %q, %q, %v; want error", c.v, key, value, err)
 			}
 		})
 	}

@@ -4,24 +4,16 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
-	"sort"
 	"strings"
 )
 
 type Hash []byte
 
-func Map(m map[string]string) Hash {
-	lines := make([]string, 0, len(m))
-	for k, v := range m {
-		lines = append(lines, fmt.Sprintf("%s=%s\n", k, v))
-	}
-	sort.Strings(lines)
-
+func New(s []string) Hash {
 	h := sha1.New()
-	for _, l := range lines {
+	for _, l := range s {
 		h.Write([]byte(l))
 	}
-
 	return h.Sum(nil)
 }
 

@@ -10,16 +10,12 @@ import (
 	"strings"
 )
 
-func KeyValue(key, value string) string {
-	return key + "=" + value
-}
-
-func ParsePair(pair string) (key string, value string, err error) {
-	delimiter := strings.Index(pair, "=")
+func ParseVar(v string) (key string, value string, err error) {
+	delimiter := strings.Index(v, "=")
 	if delimiter < 1 {
-		return "", "", fmt.Errorf("invalid env variable format %q", pair)
+		return "", "", fmt.Errorf("invalid env variable format %q", v)
 	}
-	pr := []rune(pair)
+	pr := []rune(v)
 
 	key = string(pr[:delimiter])
 	value = string(pr[delimiter+1:])
@@ -34,7 +30,7 @@ func Parse(env io.Reader) (Config, error) {
 
 	line := 1
 	for scanner.Scan() {
-		k, v, err := ParsePair(scanner.Text())
+		k, v, err := ParseVar(scanner.Text())
 		if err != nil {
 			return nil, fmt.Errorf("processing line %d: %v", line, err)
 		}
@@ -65,8 +61,7 @@ func Save(filename string, cfg Config) error {
 		return err
 	}
 
-	for key, value := range cfg {
-		line := KeyValue(key, value)
+	for line := range cfg.Ordered() {
 		_, err := fmt.Fprintln(f, line)
 		if err != nil {
 			return fmt.Errorf("writing env line %q: %v", line, err)
