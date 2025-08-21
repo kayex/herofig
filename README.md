@@ -4,9 +4,9 @@ The **Hero**ku Con**fig** tool.
 ## Prerequisites
 To run herofig you need to install and log into the [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli).
 
-# Building
+# Installation
 ```shell
-go build -o herofig
+go install github.com/kayex/herofig@latest
 ```
 
 ## Usage
