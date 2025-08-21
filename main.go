@@ -3,12 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/kayex/herofig/config"
-	"github.com/kayex/herofig/console"
-	"github.com/kayex/herofig/env"
-	"github.com/kayex/herofig/heroku"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/kayex/herofig/internal/console"
 )
 
 func main() {
@@ -18,11 +16,12 @@ func main() {
 	flag.Parse()
 	command := flag.Arg(0)
 	args := flag.Args()[1:]
+
 	if *a == "" {
 		a = app
 	}
 
-	h := heroku.NewHeroku(*a)
+	h := NewHeroku(*a)
 
 	switch command {
 	case "get":
@@ -40,11 +39,11 @@ func main() {
 	case "hash":
 		Hash(h, args)
 	default:
-		console.Fatalln("Usage: herofig get|set|pull|push|push:new|search|hash")
+		console.Fatalln("Usage: herofig [-a app] get|set|pull|push|push:new|search|hash")
 	}
 }
 
-func Get(h *heroku.Heroku, args []string) {
+func Get(h *Heroku, args []string) {
 	if len(args) < 1 {
 		console.Fatalln("Usage: herofig get [key]")
 	}
@@ -52,21 +51,21 @@ func Get(h *heroku.Heroku, args []string) {
 
 	v, err := h.ConfigValue(key)
 	if err != nil {
-		console.Fatalf("failed getting value for %s: %v", key, err)
+		console.Fatalln("getting value for %s: %v", key, err)
 	}
 	fmt.Print(v)
 }
 
-func Set(h *heroku.Heroku, args []string) {
+func Set(h *Heroku, args []string) {
 	if len(args) < 1 {
 		console.Fatalln("Usage: herofig set KEY=VALUE")
 	}
 
-	cfg := make(config.Config)
+	cfg := make(Config)
 	for _, pair := range args {
-		k, v, err := env.ParsePair(pair)
+		k, v, err := ParsePair(pair)
 		if err != nil {
-			console.Fatalf("failed parsing variables: %v", err)
+			console.Fatalf("parsing variables: %v", err)
 		}
 		cfg[k] = v
 	}
@@ -80,13 +79,13 @@ func Set(h *heroku.Heroku, args []string) {
 
 	err := h.SetConfig(cfg)
 	if err != nil {
-		console.Fatalf("failed setting %s: %v", strings.Join(args, " "), err)
+		console.Fatalln(err.Error())
 	}
 
 	fmt.Println(console.Success("Successfully set %d configuration %s", len(cfg), pluralize("variable", "", "s", len(cfg))))
 }
 
-func Pull(h *heroku.Heroku, args []string) {
+func Pull(h *Heroku, args []string) {
 	destination := ""
 	if len(args) >= 1 {
 		destination = args[0]
@@ -99,7 +98,7 @@ func Pull(h *heroku.Heroku, args []string) {
 
 	cfg, err := h.Config()
 	if err != nil {
-		console.Fatalf("failed pulling config: %v", err)
+		console.Fatalf("pulling config: %v", err)
 	}
 
 	if destination == "" {
@@ -109,34 +108,34 @@ func Pull(h *heroku.Heroku, args []string) {
 		return
 	}
 
-	err = env.Save(destination, cfg)
+	err = Save(destination, cfg)
 	if err != nil {
-		console.Fatalf("failed saving config to %s: %v", destination, err)
+		console.Fatalf("saving config to %s: %v", destination, err)
 	}
 
 	fmt.Println(console.Success(fmt.Sprintf("Pulled %d configuration variables into %s", len(cfg), console.FilePath(destination))))
 }
 
-func Push(h *heroku.Heroku, args []string) {
+func Push(h *Heroku, args []string) {
 	if len(args) < 1 {
 		console.Fatalln("Usage: herofig push [env file]")
 	}
 	source := args[0]
 
-	cfg, err := env.Open(source)
+	cfg, err := Open(source)
 	if err != nil {
 		console.Fatal(err)
 	}
 
 	err = h.SetConfig(cfg)
 	if err != nil {
-		console.Fatalf("failed pushing config: %v", err)
+		console.Fatalf("pushing config: %v", err)
 	}
 
 	fmt.Println(console.Success("Successfully pushed %d configuration %s.", len(cfg), pluralize("variable", "", "s", len(cfg))))
 }
 
-func PushNew(h *heroku.Heroku, args []string) {
+func PushNew(h *Heroku, args []string) {
 	if len(args) < 1 {
 		console.Fatalln("Usage: herofig push:new [env file]")
 	}
@@ -144,10 +143,10 @@ func PushNew(h *heroku.Heroku, args []string) {
 
 	existing, err := h.Config()
 	if err != nil {
-		console.Fatalf("failed getting existing config from application: %v", err)
+		console.Fatalf("getting existing config from application: %v", err)
 	}
 
-	cfg, err := env.Open(source)
+	cfg, err := Open(source)
 	if err != nil {
 		console.Fatal(err)
 	}
@@ -167,13 +166,13 @@ func PushNew(h *heroku.Heroku, args []string) {
 
 	err = h.SetConfig(newConfig)
 	if err != nil {
-		console.Fatalf("failed pushing config to application: %v", err)
+		console.Fatalf("pushing config to application: %v", err)
 	}
 
 	fmt.Println(console.Success("Successfully pushed %d new configuration %s.", len(newConfig), pluralize("variable", "", "s", len(newConfig))))
 }
 
-func Search(h *heroku.Heroku, args []string) {
+func Search(h *Heroku, args []string) {
 	if len(args) < 1 {
 		fmt.Println("Usage: herofig search [query]")
 	}
@@ -181,7 +180,7 @@ func Search(h *heroku.Heroku, args []string) {
 
 	cfg, err := h.Config()
 	if err != nil {
-		console.Fatalf("failed getting config from application: %v", err)
+		console.Fatalf("getting config from application: %v", err)
 	}
 
 	strategy := substringSearch
@@ -206,13 +205,13 @@ func Search(h *heroku.Heroku, args []string) {
 	}
 }
 
-func Hash(h *heroku.Heroku, args []string) {
-	localEnvFiles, err := env.Find(".")
+func Hash(h *Heroku, args []string) {
+	localEnvFiles, err := Find(".")
 	if err != nil {
-		console.Fatal(fmt.Errorf("failed searching for .env files: %v", err))
+		console.Fatal(fmt.Errorf("searching for .env files: %v", err))
 	}
 	for _, envFile := range localEnvFiles {
-		localCfg, err := env.Open(envFile)
+		localCfg, err := Open(envFile)
 		if err != nil {
 			console.Fatal(err)
 		}
