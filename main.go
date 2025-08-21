@@ -206,7 +206,7 @@ func Search(h *Heroku, args []string) {
 }
 
 func Hash(h *Heroku, args []string) {
-	localEnvFiles, err := Find(".")
+	localEnvFiles, err := FindEnvFiles(".")
 	if err != nil {
 		console.Fatal(fmt.Errorf("searching for .env files: %v", err))
 	}

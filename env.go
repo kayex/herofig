@@ -44,17 +44,6 @@ func Parse(env io.Reader) (Config, error) {
 	return cfg, nil
 }
 
-func Write(w io.Writer, cfg Config) error {
-	for key, value := range cfg {
-		line := KeyValue(key, value)
-		_, err := fmt.Fprintln(w, line)
-		if err != nil {
-			return fmt.Errorf("writing env line %q: %v", line, err)
-		}
-	}
-	return nil
-}
-
 func Open(filename string) (Config, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -76,14 +65,17 @@ func Save(filename string, cfg Config) error {
 		return err
 	}
 
-	err = Write(f, cfg)
-	if err != nil {
-		return fmt.Errorf("writing to env file: %v", err)
+	for key, value := range cfg {
+		line := KeyValue(key, value)
+		_, err := fmt.Fprintln(f, line)
+		if err != nil {
+			return fmt.Errorf("writing env line %q: %v", line, err)
+		}
 	}
 	return nil
 }
 
-func Find(root string) ([]string, error) {
+func FindEnvFiles(root string) ([]string, error) {
 	extension := ".env"
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
