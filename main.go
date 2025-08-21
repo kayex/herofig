@@ -51,7 +51,7 @@ func Get(h *Heroku, args []string) {
 
 	v, err := h.ConfigValue(key)
 	if err != nil {
-		console.Fatalln("getting value for %s: %v", key, err)
+		console.Fatalf("getting value: %v", err)
 	}
 	fmt.Print(v)
 }
@@ -124,7 +124,7 @@ func Push(h *Heroku, args []string) {
 
 	cfg, err := Open(source)
 	if err != nil {
-		console.Fatal(err)
+		console.Fatalln(err)
 	}
 
 	err = h.SetConfig(cfg)
@@ -148,7 +148,7 @@ func PushNew(h *Heroku, args []string) {
 
 	cfg, err := Open(source)
 	if err != nil {
-		console.Fatal(err)
+		console.Fatalln(err)
 	}
 
 	newConfig := make(map[string]string)
@@ -206,12 +206,12 @@ func Search(h *Heroku, args []string) {
 func Hash(h *Heroku, args []string) {
 	localEnvFiles, err := FindEnvFiles(".")
 	if err != nil {
-		console.Fatal(fmt.Errorf("searching for .env files: %v", err))
+		console.Fatalf("searching for .env files: %v", err)
 	}
 	for _, envFile := range localEnvFiles {
 		localCfg, err := Open(envFile)
 		if err != nil {
-			console.Fatal(err)
+			console.Fatalln(err)
 		}
 
 		hash := localCfg.Hash()
@@ -223,7 +223,7 @@ func Hash(h *Heroku, args []string) {
 
 	cfg, err := h.Config()
 	if err != nil {
-		console.Fatalf("failed getting config from application: %v", err)
+		console.Fatalf("getting config from application: %v", err)
 	}
 	hash := cfg.Hash()
 	fmt.Printf("%s %s %x\n", console.App(h.App()), console.ID(hash.Mnemonic(2)), hash)

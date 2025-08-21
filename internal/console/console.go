@@ -47,11 +47,6 @@ func ConfirmOverwrite(filename string) bool {
 	return true
 }
 
-func Fatal(v ...any) {
-	fmt.Print(v...)
-	os.Exit(1)
-}
-
 func Fatalln(v ...any) {
 	fmt.Println(v...)
 	os.Exit(1)
@@ -59,5 +54,6 @@ func Fatalln(v ...any) {
 
 func Fatalf(format string, v ...any) {
 	fmt.Printf(format, v...)
+	fmt.Print("\n")
 	os.Exit(1)
 }
