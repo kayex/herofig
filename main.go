@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"strings"
+	"text/tabwriter"
 	"unicode/utf8"
 
 	"github.com/kayex/herofig/internal/console"
@@ -217,6 +219,9 @@ func Search(h *Heroku, args []string) {
 }
 
 func Hash(h *Heroku, args []string) {
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+
 	localEnvFiles, err := FindEnvFiles(".")
 	if err != nil {
 		console.Fatalf("searching for .env files: %v", err)
@@ -228,10 +233,10 @@ func Hash(h *Heroku, args []string) {
 		}
 
 		hash := localCfg.Hash()
-		fmt.Printf("%s %s %x\n", console.FilePath(envFile), console.ID(hash.Mnemonic(2)), hash)
-	}
-	if len(localEnvFiles) > 0 {
-		fmt.Println()
+		_, err = fmt.Fprintf(tw, "%s\t%s\t%x\n", console.FilePath(envFile), console.ID(hash.Mnemonic(2)), hash)
+		if err != nil {
+			console.Fatalln(err)
+		}
 	}
 
 	cfg, err := h.Config()
@@ -239,7 +244,12 @@ func Hash(h *Heroku, args []string) {
 		console.Fatalf("getting config from application: %v", err)
 	}
 	hash := cfg.Hash()
-	fmt.Printf("%s %s %x\n", console.App(h.App()), console.ID(hash.Mnemonic(2)), hash)
+	_, err = fmt.Fprintf(tw, "%s\t%s\t%x\n", console.App(h.App()), console.ID(hash.Mnemonic(2)), hash)
+	if err != nil {
+		console.Fatalln(err)
+	}
+	err = tw.Flush()
+	fmt.Print(buf.String())
 }
 
 func substringSearch(haystack, needle string) []int {
