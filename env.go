@@ -66,10 +66,10 @@ func Save(filename string, cfg Config) error {
 		return err
 	}
 
-	for line := range cfg.Ordered() {
-		_, err := fmt.Fprintln(f, line)
+	for _, v := range cfg.Ordered() {
+		_, err := fmt.Fprintln(f, v.String())
 		if err != nil {
-			return fmt.Errorf("writing env line %q: %v", line, err)
+			return fmt.Errorf("writing env line %q: %v", v, err)
 		}
 	}
 	return nil
