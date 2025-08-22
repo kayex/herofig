@@ -10,11 +10,17 @@ import (
 )
 
 func main() {
+	usageMessage := "Usage: herofig [-a app] get|set|pull|push|push:new|search|hash"
 	// Accept explicit application name using -a and --app flags to be consistent with the Heroku CLI.
 	var a = flag.String("a", "", "The Heroku application name.")
 	var app = flag.String("app", "", "The Heroku application name.")
 	flag.Parse()
 	command := flag.Arg(0)
+
+	if command == "" {
+		console.Fatalln(usageMessage)
+	}
+
 	args := flag.Args()[1:]
 
 	if *a == "" {
@@ -39,7 +45,7 @@ func main() {
 	case "hash":
 		Hash(h, args)
 	default:
-		console.Fatalln("Usage: herofig [-a app] get|set|pull|push|push:new|search|hash")
+		console.Fatalln(usageMessage)
 	}
 }
 
