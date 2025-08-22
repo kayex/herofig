@@ -15,19 +15,25 @@ func main() {
 	var a = flag.String("a", "", "The Heroku application name.")
 	var app = flag.String("app", "", "The Heroku application name.")
 	flag.Parse()
-	command := flag.Arg(0)
 
+	h := NewHeroku(*a)
+	authenticated, err := h.authenticated()
+	if err != nil {
+		console.Fatalln(err)
+	}
+	if !authenticated {
+		console.Fatalln("You must be logged into the Heroku CLI (heroku login)")
+	}
+
+	command := flag.Arg(0)
 	if command == "" {
 		console.Fatalln(usageMessage)
 	}
-
 	args := flag.Args()[1:]
 
 	if *a == "" {
 		a = app
 	}
-
-	h := NewHeroku(*a)
 
 	switch command {
 	case "get":

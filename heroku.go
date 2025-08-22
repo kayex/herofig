@@ -76,3 +76,18 @@ func (h *Heroku) run(script string, args ...string) ([]byte, error) {
 	}
 	return stdout, err
 }
+
+func (h *Heroku) authenticated() (bool, error) {
+	cmd := exec.Command("heroku", "whoami")
+	err := cmd.Run()
+	var ee *exec.ExitError
+	if err != nil {
+		if errors.As(err, &ee) {
+			if ee.ExitCode() == 100 {
+				return false, nil
+			}
+			return false, fmt.Errorf("Heroku CLI (%w): %s\n", err, string(ee.Stderr))
+		}
+	}
+	return true, nil
+}
