@@ -11,7 +11,7 @@ go install github.com/kayex/herofig@latest
 
 ## Usage
 Similar to the Heroku CLI, the application name must be specified with `-a` or `--app` when it cannot be inferred
-from the current working directory. Note that these flags must always be passed as the first argument to `herofig` (for now).
+from the current working directory. Note that these flags must always be passed as the first argument to `herofig`.
 
 ### Pulling the entire application config
 ```shell
@@ -43,7 +43,7 @@ herofig set AWS_S3_REGION=eu-north-1 AWS_S3_BUCKET=bucket
 
 ### Searching for config variables
 ```shell
-herofig search AWS
+herofig search aws
 ```
 
 ### Comparing configurations
