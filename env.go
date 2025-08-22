@@ -18,29 +18,34 @@ func ParseVar(v string) (key string, value string, err error) {
 	pr := []rune(v)
 
 	key = string(pr[:delimiter])
+	key = strings.TrimSpace(key)
 	value = string(pr[delimiter+1:])
 	return key, value, nil
 }
 
 func Parse(env io.Reader) (Config, error) {
-	cfg := make(map[string]string)
+	cfg := make(Config)
 
 	scanner := bufio.NewScanner(env)
 	scanner.Split(bufio.ScanLines)
 
-	line := 1
+	line := 0
 	for scanner.Scan() {
-		k, v, err := ParseVar(scanner.Text())
+		line++
+		t := scanner.Text()
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+		k, v, err := ParseVar(t)
 		if err != nil {
 			return nil, fmt.Errorf("processing line %d: %v", line, err)
 		}
 		cfg[k] = v
-		line++
 	}
 	return cfg, nil
 }
 
-func Open(filename string) (Config, error) {
+func Load(filename string) (Config, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err

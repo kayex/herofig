@@ -123,7 +123,7 @@ func Push(h *Heroku, args []string) {
 	}
 	source := args[0]
 
-	cfg, err := Open(source)
+	cfg, err := Load(source)
 	if err != nil {
 		console.Fatalln(err)
 	}
@@ -147,7 +147,7 @@ func PushNew(h *Heroku, args []string) {
 		console.Fatalf("getting existing config from application: %v", err)
 	}
 
-	cfg, err := Open(source)
+	cfg, err := Load(source)
 	if err != nil {
 		console.Fatalln(err)
 	}
@@ -210,7 +210,7 @@ func Hash(h *Heroku, args []string) {
 		console.Fatalf("searching for .env files: %v", err)
 	}
 	for _, envFile := range localEnvFiles {
-		localCfg, err := Open(envFile)
+		localCfg, err := Load(envFile)
 		if err != nil {
 			console.Fatalln(err)
 		}
